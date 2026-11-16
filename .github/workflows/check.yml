@@ -1,0 +1,19 @@
+name: check
+on: [push, pull_request]
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Byte-compile
+        run: python -m py_compile app.py recorder/core.py
+      - name: Smoke test (starts, serves index, stops)
+        run: |
+          MCR_CONFIG=/tmp/mcr/config.json MCR_RECORDINGS=/tmp/mcr/rec MCR_TOKEN=t python app.py --no-browser --port 8899 &
+          sleep 2
+          curl -sf -H "X-Token: t" http://127.0.0.1:8899/api/state | grep -q '"ok": true'
+          curl -sf http://127.0.0.1:8899/ | grep -q "MobileCAD Recorder"
+          kill %1
