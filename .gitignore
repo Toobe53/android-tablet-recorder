@@ -5,3 +5,8 @@ recordings/
 config.json
 *.mp4
 *.wav
+build/work/
+build/icon.iconset/
+dist/
+.venv/
+*.spec.bak
