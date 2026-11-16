@@ -1,0 +1,12 @@
+{
+  "serial": "",
+  "recordings_dir": "~/Movies/MobileCAD Recorder",
+  "demo_dir": "",
+  "size": 1920,
+  "fps": 60,
+  "bitrate": "16M",
+  "touches": true,
+  "mirror": false,
+  "audio": "mic",
+  "audio_device": "0"
+}

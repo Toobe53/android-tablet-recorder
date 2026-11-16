@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MobileCAD Recorder</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <div class="brand">
+    <span class="logo">●</span>
+    <div>
+      <h1>MobileCAD Recorder</h1>
+      <p class="sub">adb + scrcpy + ffmpeg · 平板录屏录音工作台</p>
+    </div>
+  </div>
+  <div class="device-chip" id="deviceChip">
+    <span class="dot" id="deviceDot"></span>
+    <span id="deviceText">正在检测设备…</span>
+  </div>
+</header>
+
+<main>
+  <section class="col">
+    <div class="card">
+      <h2>设备与自检</h2>
+      <div class="kv" id="deviceInfo"></div>
+      <div class="versions" id="versions"></div>
+      <div class="row">
+        <button class="btn" onclick="refresh(true)">刷新</button>
+        <button class="btn" onclick="screenshot()">截图</button>
+        <button class="btn" onclick="pushDemos()">推送演示工程</button>
+      </div>
+      <p class="hint" id="pushHint"></p>
+    </div>
+
+    <div class="card">
+      <h2>录制</h2>
+      <div class="grid2">
+        <label>文件名<input id="name" value="ep01-take1" spellcheck="false"></label>
+        <label>音频
+          <select id="audio">
+            <option value="mic">平板麦克风（人声）</option>
+            <option value="playback">设备内部声音</option>
+            <option value="none">无声（B-roll）</option>
+          </select>
+        </label>
+        <label>分辨率
+          <select id="size">
+            <option value="1920">1920（1080p 级）</option>
+            <option value="2560">2560（2K）</option>
+            <option value="1600">1600</option>
+            <option value="1280">1280（720p）</option>
+          </select>
+        </label>
+        <label>帧率
+          <select id="fps">
+            <option value="60">60 fps</option>
+            <option value="30">30 fps</option>
+          </select>
+        </label>
+        <label>码率<input id="bitrate" value="16M" spellcheck="false"></label>
+        <label class="check"><input type="checkbox" id="touches" checked> 显示手指触点</label>
+        <label class="check"><input type="checkbox" id="mirror"> 显示镜像窗口</label>
+      </div>
+      <div class="row">
+        <button class="btn primary big" id="recBtn" onclick="toggleRecord()">开始录制</button>
+        <span class="timer" id="timer">00:00</span>
+      </div>
+      <p class="hint" id="recOut">输出到录制目录，文件名自动带时间戳。</p>
+    </div>
+
+    <div class="card">
+      <h2>配音与合成</h2>
+      <div class="grid2">
+        <label>Mac 麦克风
+          <select id="audioDev"><option value="0">0（默认）</option></select>
+        </label>
+        <label>录音文件名<input id="audioName" value="ep01-narration" spellcheck="false"></label>
+      </div>
+      <div class="row">
+        <button class="btn" onclick="refreshAudioDevices()">刷新麦克风</button>
+        <button class="btn" id="audioBtn" onclick="toggleAudio()">开始录音</button>
+      </div>
+      <hr>
+      <div class="grid2">
+        <label>画面（mp4）<select id="muxVideo"></select></label>
+        <label>声音（wav/m4a）<select id="muxAudio"></select></label>
+      </div>
+      <div class="row">
+        <button class="btn" onclick="mux()">合成一条片子</button>
+      </div>
+      <p class="hint">音质优先时：先用「无声」录画面，再单独录 Mac 麦克风，最后合成。</p>
+    </div>
+
+    <div class="card">
+      <h2>目录设置</h2>
+      <label>录制目录<input id="recDir" spellcheck="false"></label>
+      <label>演示工程目录<input id="demoDir" spellcheck="false" placeholder="例如 …/video-course/demo"></label>
+      <div class="row">
+        <button class="btn" onclick="saveSettings()">保存设置</button>
+        <button class="btn" onclick="openFolder()">打开录制目录</button>
+      </div>
+      <p class="hint" id="configPath"></p>
+    </div>
+  </section>
+
+  <section class="col">
+    <div class="card grow">
+      <div class="card-head">
+        <h2>运行日志</h2>
+        <button class="btn tiny" onclick="clearLog()">清空</button>
+      </div>
+      <pre id="log" class="log"></pre>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>最近文件</h2>
+        <button class="btn tiny" onclick="openFolder()">打开目录</button>
+      </div>
+      <ul id="outputs" class="outputs"></ul>
+    </div>
+  </section>
+</main>
+
+<div id="toast" class="toast"></div>
+<script src="/app.js"></script>
+</body>
+</html>
