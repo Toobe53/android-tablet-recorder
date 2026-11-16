@@ -120,7 +120,7 @@ build/mobilecad-recorder.spec  PyInstaller 打包配置（含 .app、图标、�
 - **macOS 提示「无法验证开发者」**：右键 App →「打开」，或 `xattr -dr com.apple.quarantine "MobileCAD Recorder.app"`。
 - **首次启动弹「本地网络」权限**：允许即可，它只用于 `127.0.0.1` 上的界面服务。
 - **没有声音**：Android 11 以下不支持音频转发；确认平板没静音；试试「设备内部声音」。
-- **电平表不动**：电平表读的是 **Mac 麦克风**（用于配音/监听），不读平板音频；首次使用需给应用麦克风权限。
+- **电平表不动**：电平表读的是**本机麦克风**（macOS 走 avfoundation、Windows 走 DirectShow、Linux 走 PulseAudio），不读平板音频；首次使用需给应用麦克风权限。
 - **预览很卡/很慢**：预览是截图循环，不是视频流；调低宽度或帧率，或直接用镜像窗口。
 - **Windows 打不开窗口**：安装 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)。
 - **Linux 缺少 webkit**：`sudo apt install libwebkit2gtk-4.1-0`，或用 `--browser` 模式。

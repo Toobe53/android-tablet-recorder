@@ -121,6 +121,17 @@ def device_info(tools, serial=None):
 
 
 def ffmpeg_audio_devices(tools):
+    import platform as _platform
+    if _platform.system() == "Windows":
+        code, text = run([tools.ffmpeg, "-hide_banner", "-f", "dshow", "-list_devices", "true", "-i", "dummy"], timeout=20)
+        out = []
+        for line in text.splitlines():
+            m = re.search(r'"([^"]+)"\s*\(audio\)', line)
+            if m:
+                out.append({"index": str(len(out)), "name": m.group(1)})
+        return out
+    if _platform.system() != "Darwin":
+        return [{"index": "0", "name": "default（PulseAudio）"}]
     code, text = run([tools.ffmpeg, "-hide_banner", "-f", "avfoundation", "-list_devices", "true", "-i", ""], timeout=20)
     out, in_audio = [], False
     for line in text.splitlines():

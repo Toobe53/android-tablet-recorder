@@ -1,9 +1,13 @@
 """Live preview (screencap -> JPEG) and microphone level meter."""
 import io
+import platform
 import re
 import subprocess
+import sys
 import threading
 import time
+
+from .core import run as core_run
 
 try:
     from PIL import Image
@@ -98,12 +102,34 @@ class LevelMeter:
         self._peak = -90.0
         self._error = ""
 
+    def _input_args(self, device):
+        """Microphone input per platform (the meter is a local monitor)."""
+        if sys.platform == "darwin":
+            return ["-f", "avfoundation", "-i", ":%s" % device]
+        if sys.platform.startswith("linux"):
+            return ["-f", "pulse", "-i", "default"]
+        if sys.platform == "win32":
+            name = device
+            if not device or device.isdigit():
+                name = self._first_dshow_audio() or "Microphone"
+            return ["-f", "dshow", "-i", "audio=%s" % name]
+        return ["-f", "avfoundation", "-i", ":%s" % device]
+
+    def _first_dshow_audio(self):
+        code, text = core_run([self.tools.ffmpeg, "-hide_banner", "-f", "dshow",
+                               "-list_devices", "true", "-i", "dummy"], timeout=15)
+        for line in text.splitlines():
+            m = re.search(r'"([^"]+)"\s*\(audio\)', line)
+            if m:
+                return m.group(1)
+        return ""
+
     def start(self, device="0"):
         self.stop()
-        cmd = [self.tools.ffmpeg, "-hide_banner", "-loglevel", "error",
-               "-f", "avfoundation", "-i", ":%s" % device,
-               "-af", "astats=metadata=1:reset=1,ametadata=mode=print:file=-",
-               "-f", "null", "-"]
+        cmd = ([self.tools.ffmpeg, "-hide_banner", "-loglevel", "error"] +
+               self._input_args(device) +
+               ["-af", "astats=metadata=1:reset=1,ametadata=mode=print:file=-",
+               "-f", "null", "-"])
         try:
             self._proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
                                           text=True, bufsize=1)
