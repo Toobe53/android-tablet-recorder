@@ -16,5 +16,5 @@ jobs:
           PID=$!
           sleep 3
           curl -sf -H "X-Token: t" http://127.0.0.1:8899/api/state | grep -q '"ok": true'
-          curl -sf http://127.0.0.1:8899/ | grep -q "MobileCAD Recorder"
+          curl -sf http://127.0.0.1:8899/ | grep -q "安卓平板录屏助手"
           kill $PID
