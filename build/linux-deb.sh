@@ -32,5 +32,5 @@ Description: Android tablet screen recorder
  Live preview, screen+mic recording with A/V sync, audio meter,
  screenshot and demo push, built on adb + scrcpy + ffmpeg.
 CONTROL
-dpkg-deb --build --root-owner-group "$PKG" "$ROOT/dist/安卓平板录屏助手-Linux.deb"
-echo "built $ROOT/dist/安卓平板录屏助手-Linux.deb"
+dpkg-deb --build --root-owner-group "$PKG" "$ROOT/dist/TabletRecorder-Linux.deb"
+echo "built $ROOT/dist/TabletRecorder-Linux.deb"

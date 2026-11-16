@@ -49,8 +49,8 @@ jobs:
           mkdir -p dist/dmg
           cp -R "dist/安卓平板录屏助手.app" dist/dmg/
           ln -s /Applications dist/dmg/Applications
-          hdiutil create -volname "安卓平板录屏助手" -srcfolder dist/dmg -ov -format UDZO "/tmp/安卓平板录屏助手-macOS.dmg"
-          cp "/tmp/安卓平板录屏助手-macOS.dmg" "dist/安卓平板录屏助手-macOS.dmg"
+          hdiutil create -volname "安卓平板录屏助手" -srcfolder dist/dmg -ov -format UDZO "/tmp/TabletRecorder-macOS.dmg"
+          cp "/tmp/TabletRecorder-macOS.dmg" "dist/TabletRecorder-macOS.dmg"
 
       - name: Package (Windows installer)
         if: runner.os == 'Windows'
@@ -63,7 +63,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           bash build/linux-deb.sh
-          tar -czf "dist/安卓平板录屏助手-Linux.tar.gz" -C dist TabletRecorder
+          tar -czf "dist/TabletRecorder-Linux.tar.gz" -C dist TabletRecorder
 
       - uses: actions/upload-artifact@v4
         with:

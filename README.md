@@ -12,9 +12,9 @@
 
 | 平台 | 文件 | 说明 |
 |---|---|---|
-| macOS（Apple 芯片 arm64） | `安卓平板录屏助手-macOS.dmg` | 双击打开，把 App 拖进「应用程序」。未签名：第一次右键 →「打开」；首次启动请求「本地网络」权限（本机预览服务），点允许 |
-| Windows 10/11 | `安卓平板录屏助手-Windows-Setup.exe` | 双击安装（可自定义目录/桌面快捷方式）。需要 WebView2 运行时（Win11 默认有） |
-| Linux | `安卓平板录屏助手-Linux.deb` | `sudo dpkg -i` 安装，或解压 tar.gz 直接运行；需要 `libwebkit2gtk-4.1-0` |
+| macOS（Apple 芯片 arm64） | `TabletRecorder-macOS.dmg` | 双击打开，把 App 拖进「应用程序」。未签名：第一次右键 →「打开」；首次启动请求「本地网络」权限（本机预览服务），点允许 |
+| Windows 10/11 | `TabletRecorder-Windows-Setup.exe` | 双击安装（可自定义目录/桌面快捷方式）。需要 WebView2 运行时（Win11 默认有） |
+| Linux | `TabletRecorder-Linux.deb` | `sudo dpkg -i` 安装，或解压 tar.gz 直接运行；需要 `libwebkit2gtk-4.1-0` |
 
 > Intel Mac 或其它架构：按下方「从源码运行 / 构建」在本机打包即可（命令相同）。
 
