@@ -12,9 +12,11 @@
 
 | 平台 | 文件 | 说明 |
 |---|---|---|
-| macOS（Apple 芯片/Intel） | `MobileCAD-Recorder-macOS.zip` | 解压得到 `.app`。未签名：第一次右键 →「打开」；首次启动会请求「本地网络」权限（本机预览服务），点允许即可 |
+| macOS（Apple 芯片 arm64） | `MobileCAD-Recorder-macOS.zip` | 解压得到 `.app`。未签名：第一次右键 →「打开」；首次启动会请求「本地网络」权限（本机预览服务），点允许即可 |
 | Windows 10/11 | `MobileCAD-Recorder-Windows.zip` | 解压后运行 `MobileCAD Recorder.exe`。需要系统自带/已安装 WebView2 运行时（Win11 默认有） |
 | Linux | `MobileCAD-Recorder-Linux.tar.gz` | 解压运行 `MobileCAD-Recorder/MobileCAD-Recorder`；需要 `libwebkit2gtk-4.1-0`（`sudo apt install libwebkit2gtk-4.1-0`） |
+
+> Intel Mac 或其它架构：按下方「从源码运行 / 构建」在本机打包即可（命令相同）。
 
 外部依赖仍需本机安装：`adb`、`scrcpy`、`ffmpeg`。程序启动时会自动把 Homebrew / `/usr/local/bin` / 同目录 `bin`
 加进 PATH；找不到也可以在「设置」里手填绝对路径。
