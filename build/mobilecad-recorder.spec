@@ -52,7 +52,7 @@ if sys.platform == "darwin":
         name="MobileCAD Recorder.app",
         icon=os.path.join(ROOT, "build", "icon.icns"),
         bundle_identifier="com.toobe53.mobilecadrecorder",
-        version="2.0.0",
+        version="2.1.0",
         info_plist={
             "NSMicrophoneUsageDescription": "录课时需要访问麦克风来录制讲解声音。",
             "NSLocalNetworkUsageDescription": "在本机 127.0.0.1 上启动预览服务，用于显示控制界面。",

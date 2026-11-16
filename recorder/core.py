@@ -21,6 +21,16 @@ def safe_name(name, default="recording"):
     return (name.strip("-._") or default)[:80]
 
 
+def output_basename(cfg, name):
+    """Expand {name}/{date}/{time} in the filename template."""
+    tpl = (cfg or {}).get("filename_template") or "{name}-{date}-{time}"
+    now = time.localtime()
+    text = (tpl.replace("{name}", safe_name(name))
+               .replace("{date}", time.strftime("%Y%m%d", now))
+               .replace("{time}", time.strftime("%H%M%S", now)))
+    return safe_name(text)
+
+
 def which(name):
     return shutil.which(name) or name
 
@@ -241,7 +251,11 @@ class Runner:
     def start_record(self, cfg, serial, name):
         name = safe_name(name)
         os.makedirs(self.recordings_dir, exist_ok=True)
-        out = os.path.join(self.recordings_dir, "%s-%s.mp4" % (name, time.strftime("%Y%m%d-%H%M%S")))
+        ext = "mkv" if cfg.get("container") == "mkv" else "mp4"
+        base = output_basename(cfg, name)
+        out = os.path.join(self.recordings_dir, "%s.%s" % (base, ext))
+        if os.path.exists(out):
+            out = os.path.join(self.recordings_dir, "%s-%d.%s" % (base, int(time.time()) % 10000, ext))
         args = [self.tools.scrcpy]
         if serial:
             args += ["--serial", serial]
@@ -266,7 +280,7 @@ class Runner:
             args += ["--audio-source=%s" % audio,
                      "--audio-codec=%s" % cfg.get("audio_codec", "aac"),
                      "--audio-bit-rate=%s" % cfg.get("audio_bitrate", "192k")]
-        args += ["--record", out, "--record-format=mp4"]
+        args += ["--record", out, "--record-format=%s" % ext]
 
         def done(code):
             info = probe(self.tools, out) if os.path.exists(out) else {"ok": False, "error": "文件不存在"}
@@ -290,6 +304,40 @@ class Runner:
         args = [self.tools.ffmpeg, "-y", "-hide_banner", "-i", video, "-i", audio,
                 "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", out]
         return self._spawn(args, "mux", name, out)
+
+    def start_transcode(self, video, cfg, name="final"):
+        """Post-process a recording with ffmpeg (codec/CRF/scale/fps/audio)."""
+        os.makedirs(self.recordings_dir, exist_ok=True)
+        ext = "mkv" if cfg.get("container") == "mkv" else "mp4"
+        stem = os.path.splitext(os.path.basename(video))[0]
+        out = os.path.join(self.recordings_dir, "%s-final.%s" % (stem, ext))
+        codec = "libx265" if cfg.get("tc_codec") == "h265" else "libx264"
+        args = [self.tools.ffmpeg, "-y", "-hide_banner", "-i", video,
+                "-c:v", codec, "-crf", str(int(cfg.get("tc_crf", 23))),
+                "-preset", cfg.get("tc_preset", "medium")]
+        scale = cfg.get("tc_scale", "original")
+        if scale in ("1080", "720"):
+            args += ["-vf", "scale=-2:%s" % scale]
+        if int(cfg.get("tc_fps", 0)) > 0:
+            args += ["-r", str(int(cfg["tc_fps"]))]
+        audio_codec = cfg.get("tc_audio_codec", "aac")
+        if audio_codec == "copy":
+            args += ["-c:a", "copy"]
+        else:
+            args += ["-c:a", "libopus" if audio_codec == "opus" else "aac",
+                     "-b:a", cfg.get("tc_audio_bitrate", "192k")]
+        args.append(out)
+
+        def done(code):
+            if code == 0 and not cfg.get("keep_original", True) and os.path.exists(video):
+                try:
+                    os.remove(video)
+                    self._log("已删除原始文件：%s" % video)
+                except Exception as e:
+                    self._log("删除原始文件失败：%s" % e)
+            self._log("转码%s：%s" % ("完成" if code == 0 else "失败", out))
+
+        return self._spawn(args, "transcode", name, out, done)
 
     def stop(self, timeout=12):
         with self._lock:

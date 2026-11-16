@@ -50,7 +50,7 @@ def main():
     parser.add_argument("--version", action="store_true")
     args = parser.parse_args()
     if args.version:
-        print("MobileCAD Recorder 2.0")
+        print("MobileCAD Recorder 2.1")
         return 0
     config = Config()
     if args.port:

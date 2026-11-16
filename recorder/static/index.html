@@ -11,7 +11,7 @@
   <div class="brand">
     <span class="logo">●</span>
     <div>
-      <h1>MobileCAD Recorder <span class="ver">2.0</span></h1>
+      <h1>MobileCAD Recorder <span class="ver">2.1</span></h1>
       <p class="sub">adb + scrcpy + ffmpeg · 平板录屏录音工作台</p>
     </div>
   </div>
@@ -20,6 +20,7 @@
       <span class="dot" id="deviceDot"></span>
       <span id="deviceText">正在检测设备…</span>
     </div>
+    <button class="btn" id="logBtn" onclick="toggleLog()">日志</button>
     <button class="btn icon" title="设置" onclick="toggleSettings()">⚙</button>
   </div>
 </header>
@@ -27,10 +28,7 @@
 <main>
   <section class="col">
     <div class="card">
-      <div class="card-head">
-        <h2>设备与自检</h2>
-        <span class="path" id="toolsPath"></span>
-      </div>
+      <div class="card-head"><h2>设备与自检</h2><span class="path" id="toolsPath"></span></div>
       <div class="kv" id="deviceInfo"></div>
       <div class="versions" id="versions"></div>
       <div class="row">
@@ -39,6 +37,25 @@
         <button class="btn" onclick="pushDemos()">推送演示工程</button>
       </div>
       <p class="hint" id="pushHint"></p>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>实时画面</h2>
+        <div class="row tight">
+          <button class="btn tiny" id="prevBtn" onclick="togglePreview()">开启预览</button>
+        </div>
+      </div>
+      <div class="preview-box" id="previewBox">
+        <img id="preview" alt="实时画面" hidden>
+        <div class="preview-empty" id="previewEmpty">预览关闭<br><span>录制时自动关闭以释放设备采集</span></div>
+      </div>
+      <div class="meter-row">
+        <div class="meter"><div class="meter-fill" id="meterFill"></div></div>
+        <span class="meter-val" id="meterVal">−∞ dB</span>
+        <button class="btn tiny" id="monBtn" onclick="toggleMonitor()">麦克风电平</button>
+      </div>
+      <p class="hint" id="previewHint">预览约 2–8 fps（本机截图循环）；录制时请用 scrcpy 镜像窗口获得 60fps。</p>
     </div>
 
     <div class="card">
@@ -71,11 +88,7 @@
           <select id="fps"><option value="60">60 fps</option><option value="30">30 fps</option></select>
         </label>
         <label>视频编码
-          <select id="codec">
-            <option value="h264">H.264（兼容最好）</option>
-            <option value="h265">H.265（更小）</option>
-            <option value="av1">AV1（实验）</option>
-          </select>
+          <select id="codec"><option value="h264">H.264（兼容最好）</option><option value="h265">H.265（更小）</option><option value="av1">AV1（实验）</option></select>
         </label>
         <label>码率<input id="bitrate" value="16M" spellcheck="false"></label>
         <label>视频缓冲（ms）<input id="buffer" type="number" value="0" min="0" max="2000" step="50"></label>
@@ -83,27 +96,25 @@
       </div>
       <div class="checks">
         <label class="check"><input type="checkbox" id="touches" checked> 显示手指触点</label>
-        <label class="check"><input type="checkbox" id="mirror"> 显示镜像窗口</label>
+        <label class="check"><input type="checkbox" id="mirror"> 显示镜像窗口（60fps）</label>
         <label class="check"><input type="checkbox" id="awake" checked> 录制时保持常亮</label>
       </div>
       <div class="row">
         <button class="btn primary big" id="recBtn" onclick="toggleRecord()">开始录制</button>
         <span class="timer" id="timer">00:00</span>
       </div>
-      <p class="hint" id="recOut">输出到录制目录，文件名自动带时间戳。</p>
+      <p class="hint" id="recOut">输出到录制目录；文件名按模板生成。</p>
     </div>
+  </section>
 
+  <section class="col">
     <div class="card">
       <h2>配音与合成</h2>
       <div class="grid2">
         <label>Mac 麦克风<select id="audioDev"><option value="0">0（默认）</option></select></label>
         <label>录音文件名<input id="audioName" value="ep01-narration" spellcheck="false"></label>
-        <label>采样率
-          <select id="audioRate"><option value="48000">48000 Hz</option><option value="44100">44100 Hz</option></select>
-        </label>
-        <label>声道
-          <select id="audioChannels"><option value="2">双声道</option><option value="1">单声道</option></select>
-        </label>
+        <label>采样率<select id="audioRate"><option value="48000">48000 Hz</option><option value="44100">44100 Hz</option></select></label>
+        <label>声道<select id="audioChannels"><option value="2">双声道</option><option value="1">单声道</option></select></label>
       </div>
       <div class="row">
         <button class="btn" onclick="refreshAudioDevices()">刷新麦克风</button>
@@ -111,54 +122,65 @@
       </div>
       <hr>
       <div class="grid2">
-        <label>画面（mp4）<select id="muxVideo"></select></label>
+        <label>画面（mp4/mkv）<select id="muxVideo"></select></label>
         <label>声音（wav/m4a）<select id="muxAudio"></select></label>
       </div>
       <div class="row"><button class="btn" onclick="mux()">合成一条片子</button></div>
       <p class="hint">音质优先：先用「无声」录画面，再单独录 Mac 麦克风，最后合成。</p>
     </div>
-  </section>
 
-  <section class="col">
-    <div class="card grow">
-      <div class="card-head">
-        <h2>运行日志</h2>
-        <div class="row tight">
-          <button class="btn tiny" onclick="clearLog()">清空</button>
-        </div>
-      </div>
-      <pre id="log" class="log"></pre>
+    <div class="card">
+      <div class="card-head"><h2>最近文件</h2><button class="btn tiny" onclick="openFolder()">打开目录</button></div>
+      <ul id="outputs" class="outputs"></ul>
     </div>
 
     <div class="card">
-      <div class="card-head">
-        <h2>最近文件</h2>
-        <button class="btn tiny" onclick="openFolder()">打开目录</button>
+      <h2>输出与转码</h2>
+      <div class="grid2">
+        <label>容器
+          <select id="container"><option value="mp4">MP4</option><option value="mkv">MKV</option></select>
+        </label>
+        <label class="check"><input type="checkbox" id="transcode"> 录完自动转码</label>
+        <label>转码编码
+          <select id="tcCodec"><option value="h264">H.264</option><option value="h265">H.265</option></select>
+        </label>
+        <label>质量 CRF（越小越好）<input id="tcCrf" type="number" min="0" max="51" value="23"></label>
+        <label>编码预设
+          <select id="tcPreset"><option value="ultrafast">ultrafast</option><option value="fast">fast</option><option value="medium">medium</option><option value="slow">slow</option></select>
+        </label>
+        <label>输出缩放
+          <select id="tcScale"><option value="original">原始</option><option value="1080">1080p</option><option value="720">720p</option></select>
+        </label>
+        <label>输出帧率（0 原样）<input id="tcFps" type="number" min="0" max="120" value="0"></label>
+        <label>音频编码
+          <select id="tcAudioCodec"><option value="aac">AAC</option><option value="opus">Opus</option><option value="copy">直接复制</option></select>
+        </label>
+        <label class="check"><input type="checkbox" id="keepOriginal" checked> 保留原始文件</label>
+        <label>文件名模板<input id="filenameTemplate" spellcheck="false" value="{name}-{date}-{time}"></label>
       </div>
-      <ul id="outputs" class="outputs"></ul>
+      <p class="hint">转码在停止录制后自动排队；CRF 18≈高质量，23≈默认，28≈小体积。</p>
     </div>
   </section>
 </main>
 
 <section class="settings" id="settings" hidden>
   <div class="settings-box">
-    <div class="card-head">
-      <h2>设置</h2>
-      <button class="btn tiny" onclick="toggleSettings()">关闭</button>
-    </div>
+    <div class="card-head"><h2>设置</h2><button class="btn tiny" onclick="toggleSettings()">关闭</button></div>
     <div class="settings-grid">
       <label>录制目录<input id="recDir" spellcheck="false"></label>
       <label>演示工程目录<input id="demoDir" spellcheck="false" placeholder="…/video-course/demo"></label>
       <label>推送到设备<input id="pushDest" spellcheck="false"></label>
       <label>指定设备序列号<input id="serial" spellcheck="false" placeholder="留空 = 第一台"></label>
+      <label>预览帧率（1–15）<input id="previewFps" type="number" min="1" max="15" value="4"></label>
+      <label>预览宽度（px）<input id="previewWidth" type="number" min="320" max="1920" value="720"></label>
+      <label>预览质量（30–95）<input id="previewQuality" type="number" min="30" max="95" value="70"></label>
       <label>adb 路径<input id="adbPath" spellcheck="false" placeholder="留空走 PATH"></label>
       <label>scrcpy 路径<input id="scrcpyPath" spellcheck="false" placeholder="留空走 PATH"></label>
       <label>ffmpeg 路径<input id="ffmpegPath" spellcheck="false" placeholder="留空走 PATH"></label>
       <label>ffprobe 路径<input id="ffprobePath" spellcheck="false" placeholder="留空走 PATH"></label>
-      <label>音频编码
-        <select id="audioCodec"><option value="aac">AAC</option><option value="opus">Opus</option></select>
-      </label>
+      <label>音频编码<select id="audioCodec"><option value="aac">AAC</option><option value="opus">Opus</option></select></label>
       <label>音频码率<input id="audioBitrate" value="192k" spellcheck="false"></label>
+      <label class="check"><input type="checkbox" id="autoPreview"> 启动时自动开启预览</label>
       <label class="check"><input type="checkbox" id="openAfter"> 录完自动打开目录</label>
       <label class="check"><input type="checkbox" id="shotOnStop"> 停止时自动截图</label>
     </div>
@@ -168,6 +190,17 @@
       <span class="path" id="configPath"></span>
     </div>
   </div>
+</section>
+
+<section class="logdrawer" id="logDrawer">
+  <div class="logdrawer-head">
+    <strong>运行日志</strong>
+    <div class="row tight">
+      <button class="btn tiny" onclick="clearLog()">清空</button>
+      <button class="btn tiny" onclick="toggleLog()">收起</button>
+    </div>
+  </div>
+  <pre id="log" class="log"></pre>
 </section>
 
 <div id="toast" class="toast"></div>

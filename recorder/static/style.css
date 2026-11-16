@@ -64,3 +64,18 @@ hr{border:none;border-top:1px solid var(--line);margin:14px 0}
 .settings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 18px}
 .settings-grid .check{justify-content:flex-start}
 @media(max-width:760px){.settings-grid{grid-template-columns:1fr}}
+
+/* --- v3: preview, meter, log drawer --- */
+.preview-box{position:relative;background:#0b0e13;border:1px solid var(--line);border-radius:12px;aspect-ratio:16/10;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-top:4px}
+.preview-box img{max-width:100%;max-height:100%;display:block}
+.preview-empty{color:var(--muted);text-align:center;font-size:13px;line-height:1.7}
+.preview-empty span{font-size:11px;opacity:.75}
+.meter-row{display:flex;align-items:center;gap:10px;margin-top:12px}
+.meter{flex:1;height:9px;background:#0b0e13;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.meter-fill{height:100%;width:0;background:linear-gradient(90deg,#3ecf8e,#ffb454,#ff6b6b);transition:width .08s linear}
+.meter-val{font:11px ui-monospace,Menlo,monospace;color:var(--muted);width:64px;text-align:right}
+.logdrawer{position:fixed;left:0;right:0;bottom:0;height:34vh;min-height:200px;background:var(--panel);border-top:1px solid var(--line);display:flex;flex-direction:column;padding:10px 24px 14px;transform:translateY(102%);transition:transform .22s ease;z-index:15;box-shadow:0 -18px 50px rgba(0,0,0,.45)}
+.logdrawer.open{transform:none}
+.logdrawer-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.logdrawer .log{flex:1;min-height:0}
+body.log-open main{padding-bottom:36vh}

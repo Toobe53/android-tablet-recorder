@@ -8,9 +8,10 @@ import secrets
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import urlparse
+from urllib.parse import urlparse, parse_qs
 
 from . import core
+from .preview import Preview, LevelMeter
 
 APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -32,6 +33,8 @@ class Api:
         self._log = log or (lambda line: None)
         self.tools = self._tools()
         self.runner = core.Runner(self.tools, self.log, config.get("recordings_dir"))
+        self.preview = Preview(self.tools, self.log)
+        self.meter = LevelMeter(self.tools, self.log)
         self._cache = {}
         self._cache_lock = threading.Lock()
 
@@ -67,6 +70,8 @@ class Api:
 
     def reload_tools(self):
         self.tools = self._tools()
+        self.preview.tools = self.tools
+        self.meter.tools = self.tools
         self.runner.set_tools(self.tools)
         self.runner.recordings_dir = self.config.get("recordings_dir")
         with self._cache_lock:
@@ -115,6 +120,8 @@ class Api:
             "versions": self._cached("versions", 60.0, lambda: core.versions(self.tools)),
             "tools": self.tools.as_dict(),
             "runner": self.runner.status(),
+            "preview": self.preview.status(),
+            "meter": self.meter.status(),
             "outputs": self.outputs(),
             "log": list(self.logs)[-400:],
             "platform": platform.platform(),
@@ -174,12 +181,29 @@ def make_handler(api):
             parsed = urlparse(self.path)
             if not parsed.path.startswith("/api/"):
                 return self._static(parsed.path)
+            if parsed.path == "/api/preview.jpg":
+                query = parse_qs(parsed.query)
+                token = (query.get("token") or [""])[0]
+                if token != api.token and not self._authorised():
+                    return self._err("token 无效", 403)
+                frame, _seq = api.preview.frame()
+                if not frame:
+                    return self._err("预览未启动", 404)
+                self.send_response(200)
+                self.send_header("Content-Type", "image/jpeg")
+                self.send_header("Content-Length", str(len(frame)))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(frame)
+                return
             if not self._authorised():
                 api.log("拒绝未授权请求：%s" % parsed.path)
                 return self._err("token 无效", 403)
             try:
                 if parsed.path == "/api/state":
                     return self._json(api.state())
+                if parsed.path == "/api/level":
+                    return self._json({"ok": True, "meter": api.meter.status()})
                 if parsed.path == "/api/audio_devices":
                     return self._json({"ok": True, "devices": api._cached("audio_devices", 30.0,
                                                                         lambda: core.ffmpeg_audio_devices(api.tools))})
@@ -220,12 +244,14 @@ def make_handler(api):
                 running = api.runner.status()
                 if running["running"]:
                     return self._err("已有任务在运行：%s" % running["kind"], 409)
+                api.preview.stop()
                 serial = api.current_serial()
                 if not serial:
                     return self._err("没有可用的 adb 设备（USB 调试打开了吗？）", 409)
                 res = api.runner.start_record(cfg.as_dict(), serial, data.get("name", "recording"))
                 return self._json({"ok": True, "runner": api.runner.status(), "output": res["output"]})
             if path == "/api/record/stop":
+                recorded = api.runner.status().get("output")
                 result = api.runner.stop()
                 if cfg.get("screenshot_on_stop"):
                     serial = api.current_serial()
@@ -233,9 +259,16 @@ def make_handler(api):
                         out = os.path.join(api.runner.recordings_dir, "stills",
                                            "stop-%s.png" % time.strftime("%Y%m%d-%H%M%S"))
                         core.screenshot(api.tools, serial, out)
+                transcode_output = None
+                if cfg.get("transcode") and recorded and os.path.exists(recorded):
+                    try:
+                        transcode_output = api.runner.start_transcode(recorded, cfg.as_dict())["output"]
+                    except Exception as e:
+                        api.log("转码启动失败：%s" % e)
                 if cfg.get("open_folder_after_record"):
                     self._reveal(api.runner.recordings_dir)
-                return self._json({"ok": True, "result": result, "runner": api.runner.status()})
+                return self._json({"ok": True, "result": result, "runner": api.runner.status(),
+                                   "transcode": transcode_output})
             if path == "/api/audio/start":
                 res = api.runner.start_audio(data.get("device", cfg.get("audio_device", "0")),
                                              data.get("name", "narration"),
@@ -243,6 +276,35 @@ def make_handler(api):
                 return self._json({"ok": True, "runner": api.runner.status(), "output": res["output"]})
             if path == "/api/audio/stop":
                 return self._json({"ok": True, "result": api.runner.stop(), "runner": api.runner.status()})
+            if path == "/api/preview/start":
+                if api.runner.status()["running"]:
+                    return self._err("录制/转码进行中，无法开启预览", 409)
+                ok, message = cfg.update({k: data[k] for k in ("preview_fps", "preview_width", "preview_quality")
+                                          if k in data})
+                if not ok:
+                    return self._err(message)
+                serial = api.current_serial()
+                if not serial:
+                    return self._err("没有可用的 adb 设备", 409)
+                ok, message = api.preview.start(serial, cfg.get("preview_fps"), cfg.get("preview_width"),
+                                                cfg.get("preview_quality"))
+                if not ok:
+                    return self._err(message)
+                return self._json({"ok": True, "preview": api.preview.status()})
+            if path == "/api/preview/stop":
+                api.preview.stop()
+                return self._json({"ok": True, "preview": api.preview.status()})
+            if path == "/api/monitor/start":
+                device = str(data.get("device", cfg.get("audio_device", "0")))
+                ok, message = api.meter.start(device)
+                if not ok:
+                    return self._err("电平监听启动失败：%s" % message)
+                cfg.update({"monitor_level": True})
+                return self._json({"ok": True, "meter": api.meter.status()})
+            if path == "/api/monitor/stop":
+                api.meter.stop()
+                cfg.update({"monitor_level": False})
+                return self._json({"ok": True, "meter": api.meter.status()})
             if path == "/api/mux":
                 video, audio = data.get("video") or "", data.get("audio") or ""
                 if not os.path.isfile(video) or not os.path.isfile(audio):
@@ -316,7 +378,23 @@ class ServerHandle:
         self._thread = threading.Thread(target=self.httpd.serve_forever, daemon=True)
         self._thread.start()
         self.api.log("服务已启动 http://%s:%d" % (host, self.port))
+        if self.api.config.get("auto_preview"):
+            threading.Thread(target=self._auto_preview, daemon=True).start()
         return self
+
+    def _auto_preview(self):
+        time.sleep(1.5)
+        try:
+            if self.api.runner.status()["running"]:
+                return
+            serial = self.api.current_serial()
+            if serial:
+                cfg = self.api.config
+                self.api.preview.start(serial, cfg.get("preview_fps"), cfg.get("preview_width"),
+                                       cfg.get("preview_quality"))
+                self.api.log("已自动开启实时预览")
+        except Exception as e:
+            self.api.log("自动预览失败：%s" % e)
 
     @property
     def url(self):

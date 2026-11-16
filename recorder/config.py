@@ -33,6 +33,24 @@ DEFAULTS = {
     "audio_device": "0",
     "audio_rate": 48000,
     "audio_channels": 2,
+    # live preview / level meter
+    "preview_fps": 4,
+    "preview_width": 720,
+    "preview_quality": 70,
+    "monitor_level": False,
+    "auto_preview": False,
+    # output / post-processing
+    "container": "mp4",
+    "filename_template": "{name}-{date}-{time}",
+    "transcode": False,
+    "tc_codec": "h264",
+    "tc_crf": 23,
+    "tc_preset": "medium",
+    "tc_scale": "original",
+    "tc_fps": 0,
+    "tc_audio_codec": "aac",
+    "tc_audio_bitrate": "192k",
+    "keep_original": True,
     # after recording
     "open_folder_after_record": False,
     "screenshot_on_stop": False,
@@ -46,13 +64,21 @@ CHOICES = {
     "audio": {"mic", "playback", "none"},
     "audio_codec": {"aac", "opus"},
     "theme": {"dark", "light"},
+    "container": {"mp4", "mkv"},
+    "tc_codec": {"h264", "h265"},
+    "tc_preset": {"ultrafast", "fast", "medium", "slow"},
+    "tc_scale": {"original", "1080", "720"},
+    "tc_audio_codec": {"aac", "opus", "copy"},
 }
 INTS = {
     "size": (320, 4096), "fps": (15, 120), "video_buffer_ms": (0, 2000),
     "max_duration_s": (0, 6 * 3600), "audio_rate": (8000, 192000),
     "audio_channels": (1, 2), "port": (0, 65535),
+    "preview_fps": (1, 15), "preview_width": (320, 1920), "preview_quality": (30, 95),
+    "tc_crf": (0, 51), "tc_fps": (0, 120),
 }
-BOOLS = {"touches", "mirror", "stay_awake", "open_folder_after_record", "screenshot_on_stop"}
+BOOLS = {"touches", "mirror", "stay_awake", "open_folder_after_record", "screenshot_on_stop",
+         "monitor_level", "transcode", "keep_original", "auto_preview"}
 
 
 def _platform_dirs():
@@ -140,12 +166,12 @@ class Config:
                     return False, "参数 %s 超出范围 %s–%s" % (key, lo, hi)
             if key in BOOLS:
                 value = bool(value)
-            if key in ("bitrate", "audio_bitrate"):
+            if key in ("bitrate", "audio_bitrate", "tc_audio_bitrate"):
                 value = str(value).strip()
                 if not value or not value[-1] in "kKmM":
                     return False, "%s 应写成 8M / 192k" % key
             if key in ("adb_path", "scrcpy_path", "ffmpeg_path", "ffprobe_path",
-                       "recordings_dir", "demo_dir", "push_dest", "serial"):
+                       "recordings_dir", "demo_dir", "push_dest", "serial", "filename_template"):
                 value = str(value).strip()
             clean[key] = value
         self.data.update(clean)
