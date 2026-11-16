@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MobileCAD Recorder - standalone desktop app for adb/scrcpy/ffmpeg recording.
+"""安卓平板录屏助手 - standalone desktop app for adb/scrcpy/ffmpeg recording.
 
 Usage:
     python3 app.py                # native window (pywebview)
@@ -7,10 +7,15 @@ Usage:
     python3 app.py --port 9000    # fixed port
 """
 import argparse
+import atexit
 import os
+import signal
 import sys
 import time
 import webbrowser
+
+
+_HANDLES = []
 
 
 def bootstrap_path():
@@ -44,17 +49,29 @@ from recorder import desktop, server
 
 
 def main():
-    parser = argparse.ArgumentParser(description="MobileCAD Recorder")
+    parser = argparse.ArgumentParser(description="安卓平板录屏助手")
     parser.add_argument("--browser", action="store_true", help="用浏览器打开，不开原生窗口")
     parser.add_argument("--port", type=int, default=0, help="固定端口（默认自动）")
     parser.add_argument("--version", action="store_true")
     args = parser.parse_args()
     if args.version:
-        print("MobileCAD Recorder 2.1")
+        print("安卓平板录屏助手 3.0")
         return 0
     config = Config()
     if args.port:
         config.data["port"] = args.port
+    def _cleanup(*_args):
+        for handle in _HANDLES:
+            try:
+                handle.stop()
+            except Exception:
+                pass
+    atexit.register(_cleanup)
+    try:
+        signal.signal(signal.SIGTERM, lambda *_: (_cleanup(), sys.exit(0)))
+        signal.signal(signal.SIGINT, lambda *_: (_cleanup(), sys.exit(0)))
+    except Exception:
+        pass
     try:
         if not args.browser and desktop.available():
             error = desktop.run(config)
@@ -70,6 +87,7 @@ def main():
 def browser_mode(config):
     handle = server.ServerHandle(config, log=lambda line: print(line, flush=True),
                                  port=int(config.get("port") or 0)).start()
+    _HANDLES.append(handle)
     url = handle.url
     print("=" * 60, flush=True)
     print(" MobileCAD Recorder（浏览器模式）", flush=True)

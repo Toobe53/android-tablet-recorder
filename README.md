@@ -1,6 +1,6 @@
-# MobileCAD Recorder 2.1
+# 安卓平板录屏助手 (Tablet Recorder)
 
-面向 Android 平板的**独立桌面录课工具**：实时预览、录屏、录音、电平表、截图、推工程，一条龙。
+面向 Android 平板的**独立桌面录课工具**：实时预览、录屏、Mac 麦克风音画同步、电平表、截图、推工程，一条龙。
 底层是三个成熟的开源工具 —— **adb / scrcpy / ffmpeg** —— 界面是原生窗口（macOS / Windows / Linux），
 不用浏览器标签页，也没有 Electron 的体积。
 
@@ -8,13 +8,13 @@
 
 ## 下载
 
-到 [Releases](https://github.com/Toobe53/mobilecad-recorder/releases) 下载对应平台：
+到 [Releases](https://github.com/Toobe53/android-tablet-recorder/releases) 下载对应平台：
 
 | 平台 | 文件 | 说明 |
 |---|---|---|
-| macOS（Apple 芯片 arm64） | `MobileCAD-Recorder-macOS.zip` | 解压得到 `.app`。未签名：第一次右键 →「打开」；首次启动会请求「本地网络」权限（本机预览服务），点允许即可 |
-| Windows 10/11 | `MobileCAD-Recorder-Windows.zip` | 解压后运行 `MobileCAD Recorder.exe`。需要系统自带/已安装 WebView2 运行时（Win11 默认有） |
-| Linux | `MobileCAD-Recorder-Linux.tar.gz` | 解压运行 `MobileCAD-Recorder/MobileCAD-Recorder`；需要 `libwebkit2gtk-4.1-0`（`sudo apt install libwebkit2gtk-4.1-0`） |
+| macOS（Apple 芯片 arm64） | `安卓平板录屏助手-macOS.dmg` | 双击打开，把 App 拖进「应用程序」。未签名：第一次右键 →「打开」；首次启动请求「本地网络」权限（本机预览服务），点允许 |
+| Windows 10/11 | `安卓平板录屏助手-Windows-Setup.exe` | 双击安装（可自定义目录/桌面快捷方式）。需要 WebView2 运行时（Win11 默认有） |
+| Linux | `安卓平板录屏助手-Linux.deb` | `sudo dpkg -i` 安装，或解压 tar.gz 直接运行；需要 `libwebkit2gtk-4.1-0` |
 
 > Intel Mac 或其它架构：按下方「从源码运行 / 构建」在本机打包即可（命令相同）。
 
@@ -46,7 +46,7 @@ brew install --cask android-platform-tools
 
 | 分组 | 设置 | 默认 |
 |---|---|---|
-| 文件 | 录制目录 | `~/Movies/MobileCAD Recorder`（Win/Linux 为 `Videos/…`） |
+| 文件 | 录制目录 | `~/Movies/安卓平板录屏助手`（Win/Linux 为 `Videos/…`） |
 | | 演示工程目录 | 空（填 `video-course/demo` 之类） |
 | | 推送到设备 | `/sdcard/Download/MobileCAD-demo` |
 | 设备 | 指定序列号 | 空 = 第一台 |
@@ -85,12 +85,12 @@ pip install pywebview pyinstaller
 python3 app.py                 # 直接跑（原生窗口）
 python3 app.py --browser       # 浏览器模式（无 pywebview 时自动回退）
 
-pyinstaller build/mobilecad-recorder.spec --noconfirm   # 打包
+pyinstaller build/android-tablet-recorder.spec --noconfirm   # 打包
 ```
 
-- macOS 产物：`dist/MobileCAD Recorder.app`
-- Windows：`dist/MobileCAD Recorder/`（整个目录分发）
-- Linux：`dist/MobileCAD Recorder/`（整个目录分发）
+- macOS 产物：`dist/安卓平板录屏助手.app`
+- Windows：`dist/安卓平板录屏助手/`（整个目录分发）
+- Linux：`dist/安卓平板录屏助手/`（整个目录分发）
 
 CI（`.github/workflows/release.yml`）在三平台各自构建并上传产物；打 tag（`v*`）时自动创建 Release。
 
@@ -112,12 +112,12 @@ recorder/core.py          设备、进程管理、录制/录音/合成/截图/�
 recorder/server.py        HTTP API + 静态资源（含缓存）
 recorder/desktop.py       pywebview 原生窗口
 recorder/static/          界面（HTML/CSS/JS）
-build/mobilecad-recorder.spec  PyInstaller 打包配置（含 .app、图标、权限说明）
+build/android-tablet-recorder.spec  PyInstaller 打包配置（含 .app、图标、权限说明）
 ```
 
 ## 常见问题
 
-- **macOS 提示「无法验证开发者」**：右键 App →「打开」，或 `xattr -dr com.apple.quarantine "MobileCAD Recorder.app"`。
+- **macOS 提示「无法验证开发者」**：右键 App →「打开」，或 `xattr -dr com.apple.quarantine "安卓平板录屏助手.app"`。
 - **首次启动弹「本地网络」权限**：允许即可，它只用于 `127.0.0.1` 上的界面服务。
 - **没有声音**：Android 11 以下不支持音频转发；确认平板没静音；试试「设备内部声音」。
 - **电平表不动**：电平表读的是**本机麦克风**（macOS 走 avfoundation、Windows 走 DirectShow、Linux 走 PulseAudio），不读平板音频；首次使用需给应用麦克风权限。

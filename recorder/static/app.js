@@ -52,6 +52,7 @@ function collectRecord() {
     codec: $("codec").value, video_buffer_ms: Number($("buffer").value || 0),
     max_duration_s: Number($("maxdur").value || 0), audio: $("audio").value,
     touches: $("touches").checked, mirror: $("mirror").checked, stay_awake: $("awake").checked,
+    sync_offset_ms: Number($("syncOffset").value || 0), sync_audio_device: $("audioDev").value,
     container: $("container").value, filename_template: $("filenameTemplate").value.trim() || "{name}-{date}-{time}",
     transcode: $("transcode").checked, tc_codec: $("tcCodec").value, tc_crf: Number($("tcCrf").value),
     tc_preset: $("tcPreset").value, tc_scale: $("tcScale").value, tc_fps: Number($("tcFps").value || 0),
@@ -85,6 +86,7 @@ function render(state) {
   setVal("audioRate", String(c.audio_rate)); setVal("audioChannels", String(c.audio_channels));
   setVal("previewFps", String(c.preview_fps)); setVal("previewWidth", String(c.preview_width));
   setVal("previewQuality", String(c.preview_quality));
+  setVal("syncOffset", String(c.sync_offset_ms));
   setVal("container", c.container); setVal("filenameTemplate", c.filename_template);
   setCheck("transcode", c.transcode); setVal("tcCodec", c.tc_codec); setVal("tcCrf", String(c.tc_crf));
   setVal("tcPreset", c.tc_preset); setVal("tcScale", c.tc_scale); setVal("tcFps", String(c.tc_fps));
@@ -240,7 +242,8 @@ async function toggleRecord() {
       toast("已停止，正在收尾/转码…");
     } else {
       await api("/api/config", { ...collectRecord(), ...collectSettings() });
-      const r = await api("/api/record/start", { name: $("name").value.trim() || "recording" });
+      const r = await api("/api/record/start", { name: $("name").value.trim() || "recording",
+        sync: $("syncMic").checked });
       toast("开始录制 → " + r.output);
       stopPreviewLoop();
     }

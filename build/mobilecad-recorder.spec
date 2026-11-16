@@ -29,7 +29,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="MobileCAD Recorder",
+    name="TabletRecorder",
     debug=False,
     strip=False,
     upx=False,
@@ -43,19 +43,21 @@ coll = COLLECT(
     a.datas,
     strip=False,
     upx=False,
-    name="MobileCAD Recorder",
+    name="TabletRecorder",
 )
 
 if sys.platform == "darwin":
     app = BUNDLE(
         coll,
-        name="MobileCAD Recorder.app",
+        name="安卓平板录屏助手.app",
         icon=os.path.join(ROOT, "build", "icon.icns"),
-        bundle_identifier="com.toobe53.mobilecadrecorder",
-        version="2.1.0",
+        bundle_identifier="com.toobe53.tabletrecorder",
+        version="3.0.0",
         info_plist={
             "NSMicrophoneUsageDescription": "录课时需要访问麦克风来录制讲解声音。",
             "NSLocalNetworkUsageDescription": "在本机 127.0.0.1 上启动预览服务，用于显示控制界面。",
+            "CFBundleDisplayName": "安卓平板录屏助手",
+            "CFBundleName": "安卓平板录屏助手",
             "NSHighResolutionCapable": True,
             "LSMinimumSystemVersion": "10.15",
         },

@@ -33,6 +33,7 @@ class Api:
         self._log = log or (lambda line: None)
         self.tools = self._tools()
         self.runner = core.Runner(self.tools, self.log, config.get("recordings_dir"))
+        self.runner.set_pidfile(os.path.join(os.path.dirname(config.path), "children.json"))
         self.preview = Preview(self.tools, self.log)
         self.meter = LevelMeter(self.tools, self.log)
         self._cache = {}
@@ -248,11 +249,15 @@ def make_handler(api):
                 serial = api.current_serial()
                 if not serial:
                     return self._err("没有可用的 adb 设备（USB 调试打开了吗？）", 409)
-                res = api.runner.start_record(cfg.as_dict(), serial, data.get("name", "recording"))
+                if data.get("sync"):
+                    res = api.runner.start_synced(cfg.as_dict(), serial, data.get("name", "recording"))
+                else:
+                    res = api.runner.start_record(cfg.as_dict(), serial, data.get("name", "recording"))
                 return self._json({"ok": True, "runner": api.runner.status(), "output": res["output"]})
             if path == "/api/record/stop":
                 recorded = api.runner.status().get("output")
-                result = api.runner.stop()
+                was_synced = api.runner.status().get("kind") == "synced"
+                result = api.runner.stop(cfg=cfg.as_dict())
                 if cfg.get("screenshot_on_stop"):
                     serial = api.current_serial()
                     if serial:
@@ -260,7 +265,7 @@ def make_handler(api):
                                            "stop-%s.png" % time.strftime("%Y%m%d-%H%M%S"))
                         core.screenshot(api.tools, serial, out)
                 transcode_output = None
-                if cfg.get("transcode") and recorded and os.path.exists(recorded):
+                if (not was_synced) and cfg.get("transcode") and recorded and os.path.exists(recorded):
                     try:
                         transcode_output = api.runner.start_transcode(recorded, cfg.as_dict())["output"]
                     except Exception as e:
@@ -374,9 +379,18 @@ class ServerHandle:
                 continue
         if self.httpd is None:
             raise RuntimeError("没有可用端口：%s" % last)
+        try:
+            core.Runner.cleanup_stale(os.path.join(os.path.dirname(self.api.config.path), "children.json"))
+        except Exception:
+            pass
         self.httpd.daemon_threads = True
         self._thread = threading.Thread(target=self.httpd.serve_forever, daemon=True)
         self._thread.start()
+        try:
+            with open(os.path.join(os.path.dirname(self.api.config.path), "app.pid"), "w") as f:
+                f.write(str(os.getpid()))
+        except Exception:
+            pass
         self.api.log("服务已启动 http://%s:%d" % (host, self.port))
         if self.api.config.get("auto_preview"):
             threading.Thread(target=self._auto_preview, daemon=True).start()
@@ -402,7 +416,15 @@ class ServerHandle:
 
     def stop(self):
         try:
-            self.api.runner.stop()
+            self.api.preview.stop()
+        except Exception:
+            pass
+        try:
+            self.api.meter.stop()
+        except Exception:
+            pass
+        try:
+            self.api.runner.shutdown()
         except Exception:
             pass
         if self.httpd:

@@ -38,6 +38,8 @@ DEFAULTS = {
     "preview_width": 720,
     "preview_quality": 70,
     "monitor_level": False,
+    "sync_offset_ms": 0,
+    "sync_audio_device": "0",
     "auto_preview": False,
     # output / post-processing
     "container": "mp4",
@@ -75,7 +77,7 @@ INTS = {
     "max_duration_s": (0, 6 * 3600), "audio_rate": (8000, 192000),
     "audio_channels": (1, 2), "port": (0, 65535),
     "preview_fps": (1, 15), "preview_width": (320, 1920), "preview_quality": (30, 95),
-    "tc_crf": (0, 51), "tc_fps": (0, 120),
+    "tc_crf": (0, 51), "tc_fps": (0, 120), "sync_offset_ms": (-3000, 3000),
 }
 BOOLS = {"touches", "mirror", "stay_awake", "open_folder_after_record", "screenshot_on_stop",
          "monitor_level", "transcode", "keep_original", "auto_preview"}
@@ -171,7 +173,8 @@ class Config:
                 if not value or not value[-1] in "kKmM":
                     return False, "%s 应写成 8M / 192k" % key
             if key in ("adb_path", "scrcpy_path", "ffmpeg_path", "ffprobe_path",
-                       "recordings_dir", "demo_dir", "push_dest", "serial", "filename_template"):
+                       "recordings_dir", "demo_dir", "push_dest", "serial", "filename_template",
+                       "sync_audio_device"):
                 value = str(value).strip()
             clean[key] = value
         self.data.update(clean)

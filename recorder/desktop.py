@@ -15,7 +15,7 @@ def run(config, log=print):
     width = 1380
     height = 920
     window = webview.create_window(
-        "MobileCAD Recorder",
+        "安卓平板录屏助手",
         handle.url,
         width=width,
         height=height,

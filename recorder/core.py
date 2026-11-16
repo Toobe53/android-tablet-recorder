@@ -205,12 +205,68 @@ class Runner:
         self._name = None
         self._out = None
         self._started = None
+        self._extra = {}
+        self._pidfile = None
         self.tools = tools
         self._log = log
         self.recordings_dir = recordings_dir
 
     def set_tools(self, tools):
         self.tools = tools
+
+    def set_pidfile(self, path):
+        self._pidfile = path
+
+    def _write_pids(self):
+        if not self._pidfile:
+            return
+        pids = []
+        for proc in [self._proc] + list(self._extra.values()):
+            try:
+                if hasattr(proc, "pid") and proc.poll() is None:
+                    pids.append(proc.pid)
+            except Exception:
+                pass
+        try:
+            tmp = self._pidfile + ".tmp"
+            with open(tmp, "w") as f:
+                json.dump({"pids": pids, "ts": time.time()}, f)
+            os.replace(tmp, self._pidfile)
+        except Exception:
+            pass
+
+    @staticmethod
+    def cleanup_stale(pidfile):
+        """Kill children left behind by a force-killed previous run."""
+        try:
+            with open(pidfile) as f:
+                data = json.load(f)
+        except Exception:
+            return
+        import signal as _signal
+        for pid in data.get("pids", []):
+            try:
+                os.kill(int(pid), _signal.SIGTERM)
+            except Exception:
+                continue
+        time.sleep(0.8)
+        for pid in data.get("pids", []):
+            try:
+                os.kill(int(pid), 0)
+                os.kill(int(pid), _signal.SIGKILL)
+            except Exception:
+                pass
+        try:
+            os.remove(pidfile)
+        except Exception:
+            pass
+
+    def shutdown(self):
+        """Kill every child process this runner started (used on app exit)."""
+        try:
+            self.stop(timeout=6)
+        except Exception:
+            pass
 
     def status(self):
         with self._lock:
@@ -236,6 +292,7 @@ class Runner:
                 raise JobError("启动失败：%s" % e)
             self._proc, self._kind, self._name, self._out = proc, kind, name, out
             self._started = time.time()
+        self._write_pids()
 
         def pump():
             try:
@@ -259,14 +316,76 @@ class Runner:
         return {"output": out}
 
     # -- jobs ----------------------------------------------------------
-    def start_record(self, cfg, serial, name):
+    def start_synced(self, cfg, serial, name):
+        """Record video (scrcpy, no audio) + Mac microphone, then mux with an
+        offset computed from the moment each stream actually started."""
         name = safe_name(name)
         os.makedirs(self.recordings_dir, exist_ok=True)
         ext = "mkv" if cfg.get("container") == "mkv" else "mp4"
         base = output_basename(cfg, name)
-        out = os.path.join(self.recordings_dir, "%s.%s" % (base, ext))
-        if os.path.exists(out):
-            out = os.path.join(self.recordings_dir, "%s-%d.%s" % (base, int(time.time()) % 10000, ext))
+        video = os.path.join(self.recordings_dir, "%s.%s" % (base, ext))
+        audio_dir = os.path.join(self.recordings_dir, "audio")
+        os.makedirs(audio_dir, exist_ok=True)
+        audio = os.path.join(audio_dir, "%s.wav" % base)
+        if os.path.exists(video):
+            base = "%s-%d" % (base, int(time.time()) % 10000)
+            video = os.path.join(self.recordings_dir, "%s.%s" % (base, ext))
+            audio = os.path.join(audio_dir, "%s.wav" % base)
+
+        with self._lock:
+            if self._proc is not None and self._proc.poll() is None:
+                raise JobError("已有任务在运行：%s" % self._kind)
+            mic = cfg.get("sync_audio_device") or cfg.get("audio_device", "0")
+            audio_args = [self.tools.ffmpeg, "-y", "-hide_banner", "-loglevel", "info",
+                          "-f", "avfoundation", "-i", ":%s" % mic,
+                          "-ac", "2", "-ar", "48000", "-c:a", "pcm_s16le", audio]
+            self._log("$ " + " ".join(audio_args))
+            try:
+                aproc = subprocess.Popen(audio_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                         text=True, bufsize=1, start_new_session=True)
+            except Exception as e:
+                raise JobError("麦克风启动失败：%s" % e)
+            t_audio = time.monotonic()
+
+            vargs = self._record_args(cfg, serial, video, ext, audio_mode="none")
+            self._log("$ " + " ".join(vargs))
+            try:
+                vproc = subprocess.Popen(vargs, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                         text=True, bufsize=1, start_new_session=True)
+            except Exception as e:
+                try:
+                    os.killpg(os.getpgid(aproc.pid), signal.SIGTERM)
+                except Exception:
+                    pass
+                raise JobError("scrcpy 启动失败：%s" % e)
+
+            self._proc, self._kind, self._name, self._out = vproc, "synced", name, video
+            self._started = time.time()
+            state = {"video": vproc, "audio": aproc, "t_audio": None, "t_audio_popen": t_audio,
+                     "t_video": None,
+                     "video_path": video, "audio_path": audio, "base": base}
+            self._extra = state
+        self._write_pids()
+
+        def pump(proc, tag):
+            try:
+                for line in proc.stdout:
+                    self._log(line.rstrip())
+                    if tag == "video" and state["t_video"] is None and "Recording started" in line:
+                        state["t_video"] = time.monotonic()
+                        self._log("[同步] 视频开始记录")
+                    if tag == "audio" and state["t_audio"] is None and "Input #0" in line:
+                        state["t_audio"] = time.monotonic()
+                        self._log("[同步] 麦克风已打开")
+            except Exception:
+                pass
+
+        threading.Thread(target=pump, args=(vproc, "video"), daemon=True).start()
+        threading.Thread(target=pump, args=(aproc, "audio"), daemon=True).start()
+        threading.Thread(target=self._synced_watch, args=(state,), daemon=True).start()
+        return {"output": video, "audio": audio}
+
+    def _record_args(self, cfg, serial, out, ext, audio_mode=None):
         args = [self.tools.scrcpy]
         if serial:
             args += ["--serial", serial]
@@ -284,14 +403,34 @@ class Runner:
             args.append("--video-buffer=%d" % int(cfg["video_buffer_ms"]))
         if int(cfg.get("max_duration_s", 0)) > 0:
             args.append("--time-limit=%d" % int(cfg["max_duration_s"]))
-        audio = cfg.get("audio", "mic")
-        if audio == "none":
-            args.append("--no-audio")
-        elif audio in ("mic", "playback"):
-            args += ["--audio-source=%s" % audio,
-                     "--audio-codec=%s" % cfg.get("audio_codec", "aac"),
+        audio = audio_mode if audio_mode is not None else cfg.get("audio", "mic")
+        if audio in ("mic", "playback"):
+            args += ["--audio-source=%s" % audio, "--audio-codec=aac",
                      "--audio-bit-rate=%s" % cfg.get("audio_bitrate", "192k")]
+        elif audio == "none":
+            args.append("--no-audio")
         args += ["--record", out, "--record-format=%s" % ext]
+        return args
+
+    def _synced_watch(self, state):
+        vproc = state["video"]
+        code = vproc.wait()
+        self._log("[synced 视频结束，退出码 %s]" % code)
+        with self._lock:
+            if self._kind == "synced" and self._proc is vproc:
+                self._proc = None
+                self._kind = None
+                self._started = None
+
+    def start_record(self, cfg, serial, name):
+        name = safe_name(name)
+        os.makedirs(self.recordings_dir, exist_ok=True)
+        ext = "mkv" if cfg.get("container") == "mkv" else "mp4"
+        base = output_basename(cfg, name)
+        out = os.path.join(self.recordings_dir, "%s.%s" % (base, ext))
+        if os.path.exists(out):
+            out = os.path.join(self.recordings_dir, "%s-%d.%s" % (base, int(time.time()) % 10000, ext))
+        args = self._record_args(cfg, serial, out, ext)
 
         def done(code):
             info = probe(self.tools, out) if os.path.exists(out) else {"ok": False, "error": "文件不存在"}
@@ -350,10 +489,36 @@ class Runner:
 
         return self._spawn(args, "transcode", name, out, done)
 
-    def stop(self, timeout=12):
+    def mux_synced(self, video, audio, offset, cfg):
+        ext = "mkv" if (cfg or {}).get("container") == "mkv" else "mp4"
+        stem = os.path.splitext(os.path.basename(video))[0]
+        out = os.path.join(self.recordings_dir, "%s-synced.%s" % (stem, ext))
+        args = [self.tools.ffmpeg, "-y", "-hide_banner", "-i", video,
+                "-itsoffset", "%.3f" % offset, "-i", audio,
+                "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", out]
+
+        def done(code):
+            self._log("同步合成%s：%s（偏移 %.3f s）" % ("完成" if code == 0 else "失败", out, offset))
+            if code == 0 and not (cfg or {}).get("keep_original", True):
+                for path in (audio,):
+                    try:
+                        os.remove(path)
+                    except Exception:
+                        pass
+
+        return self._spawn(args, "mux", "synced", out, done)
+
+    def stop(self, timeout=12, cfg=None):
         with self._lock:
             proc = self._proc
+            kind = self._kind
+            extra = dict(self._extra) if self._extra else None
         if not proc or proc.poll() is not None:
+            if extra:
+                try:
+                    os.killpg(os.getpgid(extra["audio"].pid), signal.SIGTERM)
+                except Exception:
+                    pass
             return {"stopped": False, "reason": "没有正在运行的任务"}
         # SIGTERM lets scrcpy finalise the MP4 (SIGINT only works with a tty/window).
         try:
@@ -361,6 +526,11 @@ class Runner:
         except Exception:
             try:
                 proc.send_signal(signal.SIGTERM)
+            except Exception:
+                pass
+        if kind == "synced" and extra:
+            try:
+                os.killpg(os.getpgid(extra["audio"].pid), signal.SIGTERM)
             except Exception:
                 pass
         deadline = time.time() + timeout
@@ -376,4 +546,24 @@ class Runner:
             proc.wait(timeout=5)
         except Exception:
             pass
+        if kind == "synced" and extra:
+            try:
+                extra["audio"].wait(timeout=5)
+            except Exception:
+                pass
+            t_audio = extra.get("t_audio") or extra.get("t_audio_popen") or time.monotonic()
+            t_video = extra.get("t_video") or t_audio
+            delta = t_audio - t_video
+            offset = delta + (int((cfg or {}).get("sync_offset_ms", 0)) / 1000.0)
+            self._log("[同步] 音频比视频晚 %.3f s，按 %.3f s 对齐" % (delta, offset))
+            with self._lock:
+                self._proc = None
+                self._kind = None
+                self._started = None
+                self._extra = {}
+            try:
+                self.mux_synced(extra["video_path"], extra["audio_path"], offset, cfg or {})
+            except Exception as e:
+                self._log("同步合成启动失败：%s" % e)
+        self._write_pids()
         return {"stopped": True}

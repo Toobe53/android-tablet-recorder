@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MobileCAD Recorder</title>
+<title>安卓平板录屏助手</title>
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -11,8 +11,8 @@
   <div class="brand">
     <span class="logo">●</span>
     <div>
-      <h1>MobileCAD Recorder <span class="ver">2.1</span></h1>
-      <p class="sub">adb + scrcpy + ffmpeg · 平板录屏录音工作台</p>
+      <h1>安卓平板录屏助手 <span class="ver">3.0</span></h1>
+      <p class="sub">adb + scrcpy + ffmpeg · 平板录屏 · 音画同步 · 一键录制</p>
     </div>
   </div>
   <div class="header-right">
@@ -95,6 +95,8 @@
         <label>限时（秒，0 不限）<input id="maxdur" type="number" value="0" min="0" step="60"></label>
       </div>
       <div class="checks">
+        <label class="check"><input type="checkbox" id="syncMic"> Mac 麦克风同步（音画对齐）</label>
+        <label class="check"><span>同步微调 ms</span><input id="syncOffset" type="number" value="0" min="-3000" max="3000" step="10" style="width:90px"></label>
         <label class="check"><input type="checkbox" id="touches" checked> 显示手指触点</label>
         <label class="check"><input type="checkbox" id="mirror"> 显示镜像窗口（60fps）</label>
         <label class="check"><input type="checkbox" id="awake" checked> 录制时保持常亮</label>
@@ -103,7 +105,7 @@
         <button class="btn primary big" id="recBtn" onclick="toggleRecord()">开始录制</button>
         <span class="timer" id="timer">00:00</span>
       </div>
-      <p class="hint" id="recOut">输出到录制目录；文件名按模板生成。</p>
+      <p class="hint" id="recOut">输出到录制目录；文件名按模板生成。勾选「Mac 麦克风同步」时，停止后会自动按实测偏移合成 <code>-synced</code> 文件。</p>
     </div>
   </section>
 
