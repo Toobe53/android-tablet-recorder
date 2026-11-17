@@ -55,7 +55,7 @@ def main():
     parser.add_argument("--version", action="store_true")
     args = parser.parse_args()
     if args.version:
-        print("安卓平板录屏助手 3.0")
+        print("安卓平板录屏助手 3.1")
         return 0
     config = Config()
     if args.port:

@@ -21,6 +21,29 @@ def safe_name(name, default="recording"):
     return (name.strip("-._") or default)[:80]
 
 
+def denoise_filter(cfg):
+    """Build the microphone filter chain (highpass + FFT denoise + gate/loudnorm)."""
+    mode = (cfg or {}).get("denoise_mode", "medium")
+    if mode == "off":
+        return ""
+    hp = int((cfg or {}).get("denoise_hp", 90)) if mode == "custom" else {"light": 80, "medium": 90, "strong": 100}.get(mode, 90)
+    nr = int((cfg or {}).get("denoise_nr", 12)) if mode == "custom" else {"light": 6, "medium": 12, "strong": 20}.get(mode, 12)
+    nf = int((cfg or {}).get("denoise_nf", -40)) if mode == "custom" else {"light": -45, "medium": -40, "strong": -35}.get(mode, -40)
+    parts = []
+    if hp > 0:
+        parts.append("highpass=f=%d" % hp)
+    parts.append("afftdn=nr=%d:nf=%d" % (max(0, min(40, nr)), max(-80, min(-20, nf))))
+    if mode == "strong":
+        parts.append("anlmdn=s=0.0008")
+    if (cfg or {}).get("denoise_gate"):
+        parts.append("agate=threshold=0.015:ratio=2:attack=10:release=150")
+    if (cfg or {}).get("denoise_loudnorm"):
+        parts.append("loudnorm=I=-16:TP=-1.5:LRA=11")
+    if mode in ("light", "medium", "strong"):
+        parts.append("acompressor=threshold=-18dB:ratio=3:attack=10:release=200:makeup=2")
+    return ",".join(parts)
+
+
 def output_basename(cfg, name):
     """Expand {name}/{date}/{time} in the filename template."""
     tpl = (cfg or {}).get("filename_template") or "{name}-{date}-{time}"
@@ -161,6 +184,19 @@ def probe(tools, path):
     return {"ok": True, "streams": data.get("streams", []),
             "duration": float(fmt.get("duration", 0) or 0),
             "size": int(fmt.get("size", 0) or 0)}
+
+
+def get_show_touches(tools, serial):
+    code, text = _adb(tools, serial, "shell", "settings", "get", "system", "show_touches")
+    if code != 0:
+        return None
+    return text.strip() == "1"
+
+
+def set_show_touches(tools, serial, enabled):
+    code, text = _adb(tools, serial, "shell", "settings", "put", "system", "show_touches",
+                      "1" if enabled else "0")
+    return code == 0, text.strip()
 
 
 def push_demos(tools, serial, src, dest, patterns=(".fcstd", ".stl", ".step", ".ifc", ".txt")):
@@ -338,7 +374,11 @@ class Runner:
             mic = cfg.get("sync_audio_device") or cfg.get("audio_device", "0")
             audio_args = [self.tools.ffmpeg, "-y", "-hide_banner", "-loglevel", "info",
                           "-f", "avfoundation", "-i", ":%s" % mic,
-                          "-ac", "2", "-ar", "48000", "-c:a", "pcm_s16le", audio]
+                          "-ac", "2", "-ar", "48000"]
+            chain = denoise_filter(cfg)
+            if chain:
+                audio_args += ["-af", chain]
+            audio_args += ["-c:a", "pcm_s16le", audio]
             self._log("$ " + " ".join(audio_args))
             try:
                 aproc = subprocess.Popen(audio_args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -391,13 +431,14 @@ class Runner:
             args += ["--serial", serial]
         if not cfg.get("mirror"):
             args.append("--no-window")
-        if cfg.get("touches"):
+        if cfg.get("touch_mode", "record") != "off":
             args.append("--show-touches")
         if cfg.get("stay_awake"):
             args.append("--stay-awake")
-        args += ["--video-codec=%s" % cfg.get("codec", "h264"),
-                 "--max-size=%d" % int(cfg.get("size", 1920)),
-                 "--max-fps=%d" % int(cfg.get("fps", 60)),
+        args += ["--video-codec=%s" % cfg.get("codec", "h264")]
+        if int(cfg.get("size", 1920)) > 0:
+            args.append("--max-size=%d" % int(cfg["size"]))
+        args += ["--max-fps=%d" % int(cfg.get("fps", 60)),
                  "--video-bit-rate=%s" % cfg.get("bitrate", "16M")]
         if int(cfg.get("video_buffer_ms", 0)) > 0:
             args.append("--video-buffer=%d" % int(cfg["video_buffer_ms"]))
@@ -438,14 +479,17 @@ class Runner:
 
         return self._spawn(args, "record", name, out, done)
 
-    def start_audio(self, device_index, name, rate=48000, channels=2):
+    def start_audio(self, device_index, name, rate=48000, channels=2, cfg=None):
         name = safe_name(name, "audio")
         outdir = os.path.join(self.recordings_dir, "audio")
         os.makedirs(outdir, exist_ok=True)
         out = os.path.join(outdir, "%s-%s.wav" % (name, time.strftime("%Y%m%d-%H%M%S")))
         args = [self.tools.ffmpeg, "-y", "-hide_banner", "-f", "avfoundation",
-                "-i", ":%s" % device_index, "-ac", str(int(channels)), "-ar", str(int(rate)),
-                "-c:a", "pcm_s16le", out]
+                "-i", ":%s" % device_index, "-ac", str(int(channels)), "-ar", str(int(rate))]
+        chain = denoise_filter(cfg)
+        if chain:
+            args += ["-af", chain]
+        args += ["-c:a", "pcm_s16le", out]
         return self._spawn(args, "audio", name, out)
 
     def mux(self, video, audio, name):

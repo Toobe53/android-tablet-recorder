@@ -11,7 +11,7 @@
   <div class="brand">
     <span class="logo">●</span>
     <div>
-      <h1>安卓平板录屏助手 <span class="ver">3.0</span></h1>
+      <h1>安卓平板录屏助手 <span class="ver">3.1</span></h1>
       <p class="sub">adb + scrcpy + ffmpeg · 平板录屏 · 音画同步 · 一键录制</p>
     </div>
   </div>
@@ -78,6 +78,7 @@
         </label>
         <label>分辨率
           <select id="size">
+            <option value="0">原始分辨率（不缩放）</option>
             <option value="2560">2560（2K）</option>
             <option value="1920">1920（1080p 级）</option>
             <option value="1600">1600</option>
@@ -90,14 +91,27 @@
         <label>视频编码
           <select id="codec"><option value="h264">H.264（兼容最好）</option><option value="h265">H.265（更小）</option><option value="av1">AV1（实验）</option></select>
         </label>
-        <label>码率<input id="bitrate" value="16M" spellcheck="false"></label>
+        <label>码率
+          <input id="bitrate" value="16M" list="bitratePresets" spellcheck="false">
+          <datalist id="bitratePresets">
+            <option value="8M"><option value="16M"><option value="24M">
+            <option value="32M"><option value="50M"><option value="80M"><option value="120M">
+          </datalist>
+        </label>
         <label>视频缓冲（ms）<input id="buffer" type="number" value="0" min="0" max="2000" step="50"></label>
         <label>限时（秒，0 不限）<input id="maxdur" type="number" value="0" min="0" step="60"></label>
       </div>
       <div class="checks">
         <label class="check"><input type="checkbox" id="syncMic"> Mac 麦克风同步（音画对齐）</label>
         <label class="check"><span>同步微调 ms</span><input id="syncOffset" type="number" value="0" min="-3000" max="3000" step="10" style="width:90px"></label>
-        <label class="check"><input type="checkbox" id="touches" checked> 显示手指触点</label>
+        <label>触控小白点
+          <select id="touchMode" onchange="setTouchMode()">
+            <option value="off">关闭</option>
+            <option value="record">仅录屏时显示</option>
+            <option value="persistent">持久显示（系统级）</option>
+          </select>
+        </label>
+        <span class="path" id="touchState"></span>
         <label class="check"><input type="checkbox" id="mirror"> 显示镜像窗口（60fps）</label>
         <label class="check"><input type="checkbox" id="awake" checked> 录制时保持常亮</label>
       </div>
@@ -115,6 +129,20 @@
       <div class="grid2">
         <label>Mac 麦克风<select id="audioDev"><option value="0">0（默认）</option></select></label>
         <label>录音文件名<input id="audioName" value="ep01-narration" spellcheck="false"></label>
+        <label>麦克风降噪
+          <select id="denoiseMode" onchange="toggleDenoise()">
+            <option value="off">关闭（原始）</option>
+            <option value="light">轻度</option>
+            <option value="medium">标准（推荐）</option>
+            <option value="strong">强降噪</option>
+            <option value="custom">自定义…</option>
+          </select>
+        </label>
+        <label>降噪强度 nr（dB）<input id="denoiseNr" type="number" min="0" max="40" value="12"></label>
+        <label>噪声底 nf（dB）<input id="denoiseNf" type="number" min="-80" max="-20" value="-40"></label>
+        <label>高通 hp（Hz）<input id="denoiseHp" type="number" min="0" max="300" value="90"></label>
+        <label class="check"><input type="checkbox" id="denoiseGate"> 噪声门</label>
+        <label class="check"><input type="checkbox" id="denoiseLoudnorm"> 响度归一化（-16 LUFS）</label>
         <label>采样率<select id="audioRate"><option value="48000">48000 Hz</option><option value="44100">44100 Hz</option></select></label>
         <label>声道<select id="audioChannels"><option value="2">双声道</option><option value="1">单声道</option></select></label>
       </div>

@@ -23,6 +23,7 @@ DEFAULTS = {
     "codec": "h264",          # h264 | h265 | av1
     "video_buffer_ms": 0,     # 0 = scrcpy 默认；>0 增加缓冲，抗卡顿
     "max_duration_s": 0,      # 0 = 不限时
+    "touch_mode": "record",
     "touches": True,
     "mirror": False,
     "stay_awake": True,
@@ -33,6 +34,12 @@ DEFAULTS = {
     "audio_device": "0",
     "audio_rate": 48000,
     "audio_channels": 2,
+    "denoise_mode": "medium",
+    "denoise_nr": 12,
+    "denoise_nf": -40,
+    "denoise_hp": 90,
+    "denoise_gate": False,
+    "denoise_loudnorm": False,
     # live preview / level meter
     "preview_fps": 4,
     "preview_width": 720,
@@ -66,6 +73,8 @@ CHOICES = {
     "audio": {"mic", "playback", "none"},
     "audio_codec": {"aac", "opus"},
     "theme": {"dark", "light"},
+    "touch_mode": {"off", "record", "persistent"},
+    "denoise_mode": {"off", "light", "medium", "strong", "custom"},
     "container": {"mp4", "mkv"},
     "tc_codec": {"h264", "h265"},
     "tc_preset": {"ultrafast", "fast", "medium", "slow"},
@@ -73,14 +82,16 @@ CHOICES = {
     "tc_audio_codec": {"aac", "opus", "copy"},
 }
 INTS = {
-    "size": (320, 4096), "fps": (15, 120), "video_buffer_ms": (0, 2000),
+    "size": (0, 4096), "fps": (15, 120), "video_buffer_ms": (0, 2000),
     "max_duration_s": (0, 6 * 3600), "audio_rate": (8000, 192000),
     "audio_channels": (1, 2), "port": (0, 65535),
     "preview_fps": (1, 15), "preview_width": (320, 1920), "preview_quality": (30, 95),
     "tc_crf": (0, 51), "tc_fps": (0, 120), "sync_offset_ms": (-3000, 3000),
+    "denoise_nr": (0, 40), "denoise_nf": (-80, -20), "denoise_hp": (0, 300),
 }
 BOOLS = {"touches", "mirror", "stay_awake", "open_folder_after_record", "screenshot_on_stop",
-         "monitor_level", "transcode", "keep_original", "auto_preview"}
+         "monitor_level", "transcode", "keep_original", "auto_preview",
+         "denoise_gate", "denoise_loudnorm"}
 
 
 def _platform_dirs():

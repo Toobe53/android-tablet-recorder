@@ -51,7 +51,10 @@ function collectRecord() {
     size: Number($("size").value), fps: Number($("fps").value), bitrate: $("bitrate").value.trim(),
     codec: $("codec").value, video_buffer_ms: Number($("buffer").value || 0),
     max_duration_s: Number($("maxdur").value || 0), audio: $("audio").value,
-    touches: $("touches").checked, mirror: $("mirror").checked, stay_awake: $("awake").checked,
+    touch_mode: $("touchMode").value, mirror: $("mirror").checked, stay_awake: $("awake").checked,
+    denoise_mode: $("denoiseMode").value, denoise_nr: Number($("denoiseNr").value),
+    denoise_nf: Number($("denoiseNf").value), denoise_hp: Number($("denoiseHp").value),
+    denoise_gate: $("denoiseGate").checked, denoise_loudnorm: $("denoiseLoudnorm").checked,
     sync_offset_ms: Number($("syncOffset").value || 0), sync_audio_device: $("audioDev").value,
     container: $("container").value, filename_template: $("filenameTemplate").value.trim() || "{name}-{date}-{time}",
     transcode: $("transcode").checked, tc_codec: $("tcCodec").value, tc_crf: Number($("tcCrf").value),
@@ -78,12 +81,16 @@ function render(state) {
   const c = state.config || {};
   setVal("size", String(c.size)); setVal("fps", String(c.fps)); setVal("bitrate", c.bitrate);
   setVal("codec", c.codec); setVal("buffer", String(c.video_buffer_ms)); setVal("maxdur", String(c.max_duration_s));
-  setVal("audio", c.audio); setCheck("touches", c.touches); setCheck("mirror", c.mirror); setCheck("awake", c.stay_awake);
+  setVal("audio", c.audio); setVal("touchMode", c.touch_mode); setCheck("mirror", c.mirror); setCheck("awake", c.stay_awake);
   setVal("recDir", c.recordings_dir); setVal("demoDir", c.demo_dir); setVal("pushDest", c.push_dest);
   setVal("serial", c.serial); setVal("adbPath", c.adb_path); setVal("scrcpyPath", c.scrcpy_path);
   setVal("ffmpegPath", c.ffmpeg_path); setVal("ffprobePath", c.ffprobe_path);
   setVal("audioCodec", c.audio_codec); setVal("audioBitrate", c.audio_bitrate);
   setVal("audioRate", String(c.audio_rate)); setVal("audioChannels", String(c.audio_channels));
+  setVal("denoiseMode", c.denoise_mode); setVal("denoiseNr", String(c.denoise_nr));
+  setVal("denoiseNf", String(c.denoise_nf)); setVal("denoiseHp", String(c.denoise_hp));
+  setCheck("denoiseGate", c.denoise_gate); setCheck("denoiseLoudnorm", c.denoise_loudnorm);
+  toggleDenoise();
   setVal("previewFps", String(c.preview_fps)); setVal("previewWidth", String(c.preview_width));
   setVal("previewQuality", String(c.preview_quality));
   setVal("syncOffset", String(c.sync_offset_ms));
@@ -95,6 +102,8 @@ function render(state) {
   setCheck("openAfter", c.open_folder_after_record); setCheck("shotOnStop", c.screenshot_on_stop);
   $("configPath").textContent = "配置：" + (state.config_path || "");
   $("pushHint").textContent = c.demo_dir ? "推送到 " + c.push_dest : "先填写「设置 → 演示工程目录」";
+  const st = state.system_touches;
+  $("touchState").textContent = st === null || st === undefined ? "" : (st ? "系统触点：已开启" : "系统触点：已关闭");
 
   const r = state.runner || {};
   const running = !!r.running;
@@ -223,6 +232,8 @@ async function resetSettings() {
       container: "mp4", filename_template: "{name}-{date}-{time}", transcode: false, tc_codec: "h264",
       tc_crf: 23, tc_preset: "medium", tc_scale: "original", tc_fps: 0, tc_audio_codec: "aac",
       tc_audio_bitrate: "192k", keep_original: true,
+      touch_mode: "record", denoise_mode: "medium", denoise_nr: 12, denoise_nf: -40, denoise_hp: 90,
+      denoise_gate: false, denoise_loudnorm: false,
       auto_preview: false, open_folder_after_record: false, screenshot_on_stop: false,
     });
     toast("已恢复默认"); refresh(false);
@@ -282,11 +293,27 @@ async function mux() {
 async function openFolder() { try { await api("/api/open_folder", { path: $("recDir").value.trim() }); } catch (e) { toast(e.message, true); } }
 function clearLog() { $("log").textContent = ""; lastLog = ""; }
 
+async function setTouchMode() {
+  const mode = $("touchMode").value;
+  try {
+    const r = await api("/api/touches", { mode });
+    toast(mode === "persistent" ? "已在平板上持久开启触控小白点" : (mode === "off" ? "已关闭触控小白点" : "仅录屏时显示"));
+    refresh(false);
+  } catch (e) { toast(e.message, true); }
+}
+
+function toggleDenoise() {
+  const custom = $("denoiseMode").value === "custom";
+  ["denoiseNr", "denoiseNf", "denoiseHp", "denoiseGate", "denoiseLoudnorm"].forEach(id => {
+    const el = $(id); if (el) el.disabled = !custom;
+  });
+}
+
 function applyPreset() {
   const p = $("preset").value;
   const presets = {
-    high: { size: 2560, fps: 60, bitrate: "24M", buffer: 0, codec: "h264" },
-    balanced: { size: 1920, fps: 60, bitrate: "16M", buffer: 0, codec: "h264" },
+    high: { size: 0, fps: 60, bitrate: "48M", buffer: 0, codec: "h264" },
+    balanced: { size: 1920, fps: 60, bitrate: "24M", buffer: 0, codec: "h264" },
     lite: { size: 1600, fps: 30, bitrate: "8M", buffer: 200, codec: "h264" },
   };
   if (!presets[p]) return;

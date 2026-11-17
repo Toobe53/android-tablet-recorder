@@ -123,6 +123,8 @@ class Api:
             "runner": self.runner.status(),
             "preview": self.preview.status(),
             "meter": self.meter.status(),
+            "system_touches": core.get_show_touches(self.tools, serial) if serial else None,
+            "touch_mode": self.config.get("touch_mode"),
             "outputs": self.outputs(),
             "log": list(self.logs)[-400:],
             "platform": platform.platform(),
@@ -249,6 +251,8 @@ def make_handler(api):
                 serial = api.current_serial()
                 if not serial:
                     return self._err("没有可用的 adb 设备（USB 调试打开了吗？）", 409)
+                if cfg.get("touch_mode") == "persistent":
+                    core.set_show_touches(api.tools, serial, True)
                 if data.get("sync"):
                     res = api.runner.start_synced(cfg.as_dict(), serial, data.get("name", "recording"))
                 else:
@@ -277,10 +281,25 @@ def make_handler(api):
             if path == "/api/audio/start":
                 res = api.runner.start_audio(data.get("device", cfg.get("audio_device", "0")),
                                              data.get("name", "narration"),
-                                             cfg.get("audio_rate", 48000), cfg.get("audio_channels", 2))
+                                             cfg.get("audio_rate", 48000), cfg.get("audio_channels", 2),
+                                             cfg.as_dict())
                 return self._json({"ok": True, "runner": api.runner.status(), "output": res["output"]})
             if path == "/api/audio/stop":
                 return self._json({"ok": True, "result": api.runner.stop(), "runner": api.runner.status()})
+            if path == "/api/touches":
+                mode = data.get("mode")
+                ok, err = cfg.update({"touch_mode": mode})
+                if not ok:
+                    return self._err(err)
+                serial = api.current_serial()
+                if not serial:
+                    return self._err("没有可用的 adb 设备", 409)
+                enabled = (mode == "persistent")
+                ok, message = core.set_show_touches(api.tools, serial, enabled)
+                if not ok:
+                    return self._err("设置系统触点失败：%s" % message)
+                return self._json({"ok": True, "touch_mode": mode,
+                                   "system_touches": core.get_show_touches(api.tools, serial)})
             if path == "/api/preview/start":
                 if api.runner.status()["running"]:
                     return self._err("录制/转码进行中，无法开启预览", 409)
