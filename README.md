@@ -1,6 +1,6 @@
-# 安卓平板录屏助手 (Tablet Recorder) 3.1
+# 安卓平板录屏助手 (Tablet Recorder) 3.2
 
-面向 Android 平板的**独立桌面录课工具**：实时预览、录屏、Mac 麦克风音画同步、电平表、截图、推工程，一条龙。
+面向 Android 平板的**独立桌面客户端**：实时预览、录屏、Mac 麦克风音画同步、电平表、截图、推工程，一条龙。
 底层是三个成熟的开源工具 —— **adb / scrcpy / ffmpeg** —— 界面是原生窗口（macOS / Windows / Linux），
 不用浏览器标签页，也没有 Electron 的体积。
 
@@ -32,7 +32,9 @@ brew install --cask android-platform-tools
 - **设备自检**：型号、Android、分辨率、电量、存储；adb/scrcpy/ffmpeg/ffprobe 是否就绪（含实际路径）。
 - **触控小白点**：三态可选 —— 关闭 / **仅录屏时显示** / **持久显示（系统级）**，持久模式直接写平板系统设置，退出应用仍生效。
 - **原画面采集**：分辨率可选「原始分辨率（不缩放）」，按设备原生 2800×1752 采集；码率最高可填 120M（预设 8M–120M）。
-- **麦克风智能降噪**：关闭 / 轻度 / 标准 / 强降噪 / 自定义（nr、噪声底 nf、高通 hp、噪声门、响度归一化），采集时应用 FFmpeg 滤镜链。
+- **麦克风智能降噪**：关闭 / 轻度 / 标准 / 强降噪 / 自定义（nr、噪声底 nf、高通 hp、噪声门、响度归一化）。
+  Mac 麦克风在采集时应用滤镜链；**平板内置麦克风**在录完后自动后处理（`-clean.mp4`，画面直接复制、只重编码音频）。
+- **仅桌面客户端**：已关闭 WebUI/浏览器版本；窗口内的 127.0.0.1 只用于加载界面，随窗口退出，不对外提供网页服务。
 - **实时画面**：应用内预览（2–8 fps，可调分辨率/质量/帧率），不需要切换窗口；录制时自动关闭以释放设备采集（需要 60fps 时勾选「镜像窗口」）。
 - **音频可视化**：Mac 麦克风电平条（RMS/峰值），录讲解时可以看着电平说话；可开关。
 - **输出可选**：MP4/MKV 容器；录完可自动转码（H.264/H.265、CRF、preset、缩放、帧率、音频编码、保留原片），文件名模板可改。
@@ -88,8 +90,7 @@ brew install --cask android-platform-tools
 python3 -m venv .venv && . .venv/bin/activate
 pip install pywebview pyinstaller
 
-python3 app.py                 # 直接跑（原生窗口）
-python3 app.py --browser       # 浏览器模式（无 pywebview 时自动回退）
+python3 app.py                 # 桌面客户端（唯一形态）
 
 pyinstaller build/android-tablet-recorder.spec --noconfirm   # 打包
 ```
@@ -129,7 +130,7 @@ build/android-tablet-recorder.spec  PyInstaller 打包配置（含 .app、图标
 - **电平表不动**：电平表读的是**本机麦克风**（macOS 走 avfoundation、Windows 走 DirectShow、Linux 走 PulseAudio），不读平板音频；首次使用需给应用麦克风权限。
 - **预览很卡/很慢**：预览是截图循环，不是视频流；调低宽度或帧率，或直接用镜像窗口。
 - **Windows 打不开窗口**：安装 [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/)。
-- **Linux 缺少 webkit**：`sudo apt install libwebkit2gtk-4.1-0`，或用 `--browser` 模式。
+- **Linux 缺少 webkit**：`sudo apt install libwebkit2gtk-4.1-0`（客户端依赖系统 WebKit，无浏览器回退）。
 
 ## License
 

@@ -12,7 +12,7 @@ jobs:
         run: python -m py_compile app.py recorder/core.py recorder/config.py recorder/server.py recorder/desktop.py
       - name: Smoke test (starts, serves index, stops)
         run: |
-          MCR_CONFIG=/tmp/mcr/config.json MCR_RECORDINGS=/tmp/mcr/rec MCR_TOKEN=t python app.py --browser --port 8899 &
+          MCR_CONFIG=/tmp/mcr/config.json MCR_RECORDINGS=/tmp/mcr/rec MCR_TOKEN=t python app.py --headless --port 8899 &
           PID=$!
           sleep 3
           curl -sf -H "X-Token: t" http://127.0.0.1:8899/api/state | grep -q '"ok": true'

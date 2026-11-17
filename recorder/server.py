@@ -269,11 +269,16 @@ def make_handler(api):
                                            "stop-%s.png" % time.strftime("%Y%m%d-%H%M%S"))
                         core.screenshot(api.tools, serial, out)
                 transcode_output = None
-                if (not was_synced) and cfg.get("transcode") and recorded and os.path.exists(recorded):
+                needs_denoise = (cfg.get("audio") == "mic" and cfg.get("tablet_denoise")
+                                 and cfg.get("denoise_mode", "off") != "off")
+                if (not was_synced) and recorded and os.path.exists(recorded):
                     try:
-                        transcode_output = api.runner.start_transcode(recorded, cfg.as_dict())["output"]
+                        if cfg.get("transcode"):
+                            transcode_output = api.runner.start_transcode(recorded, cfg.as_dict())["output"]
+                        elif needs_denoise:
+                            transcode_output = api.runner.start_denoise(recorded, cfg.as_dict())["output"]
                     except Exception as e:
-                        api.log("转码启动失败：%s" % e)
+                        api.log("后期任务启动失败：%s" % e)
                 if cfg.get("open_folder_after_record"):
                     self._reveal(api.runner.recordings_dir)
                 return self._json({"ok": True, "result": result, "runner": api.runner.status(),

@@ -55,6 +55,7 @@ function collectRecord() {
     denoise_mode: $("denoiseMode").value, denoise_nr: Number($("denoiseNr").value),
     denoise_nf: Number($("denoiseNf").value), denoise_hp: Number($("denoiseHp").value),
     denoise_gate: $("denoiseGate").checked, denoise_loudnorm: $("denoiseLoudnorm").checked,
+    tablet_denoise: $("tabletDenoise").checked,
     sync_offset_ms: Number($("syncOffset").value || 0), sync_audio_device: $("audioDev").value,
     container: $("container").value, filename_template: $("filenameTemplate").value.trim() || "{name}-{date}-{time}",
     transcode: $("transcode").checked, tc_codec: $("tcCodec").value, tc_crf: Number($("tcCrf").value),
@@ -90,6 +91,7 @@ function render(state) {
   setVal("denoiseMode", c.denoise_mode); setVal("denoiseNr", String(c.denoise_nr));
   setVal("denoiseNf", String(c.denoise_nf)); setVal("denoiseHp", String(c.denoise_hp));
   setCheck("denoiseGate", c.denoise_gate); setCheck("denoiseLoudnorm", c.denoise_loudnorm);
+  setCheck("tabletDenoise", c.tablet_denoise);
   toggleDenoise();
   setVal("previewFps", String(c.preview_fps)); setVal("previewWidth", String(c.preview_width));
   setVal("previewQuality", String(c.preview_quality));
@@ -233,7 +235,7 @@ async function resetSettings() {
       tc_crf: 23, tc_preset: "medium", tc_scale: "original", tc_fps: 0, tc_audio_codec: "aac",
       tc_audio_bitrate: "192k", keep_original: true,
       touch_mode: "record", denoise_mode: "medium", denoise_nr: 12, denoise_nf: -40, denoise_hp: 90,
-      denoise_gate: false, denoise_loudnorm: false,
+      denoise_gate: false, denoise_loudnorm: false, tablet_denoise: true,
       auto_preview: false, open_folder_after_record: false, screenshot_on_stop: false,
     });
     toast("已恢复默认"); refresh(false);

@@ -11,7 +11,7 @@
   <div class="brand">
     <span class="logo">●</span>
     <div>
-      <h1>安卓平板录屏助手 <span class="ver">3.1</span></h1>
+      <h1>安卓平板录屏助手 <span class="ver">3.2</span></h1>
       <p class="sub">adb + scrcpy + ffmpeg · 平板录屏 · 音画同步 · 一键录制</p>
     </div>
   </div>
@@ -143,6 +143,7 @@
         <label>高通 hp（Hz）<input id="denoiseHp" type="number" min="0" max="300" value="90"></label>
         <label class="check"><input type="checkbox" id="denoiseGate"> 噪声门</label>
         <label class="check"><input type="checkbox" id="denoiseLoudnorm"> 响度归一化（-16 LUFS）</label>
+        <label class="check"><input type="checkbox" id="tabletDenoise" checked> 平板麦克风也降噪（录后处理）</label>
         <label>采样率<select id="audioRate"><option value="48000">48000 Hz</option><option value="44100">44100 Hz</option></select></label>
         <label>声道<select id="audioChannels"><option value="2">双声道</option><option value="1">单声道</option></select></label>
       </div>

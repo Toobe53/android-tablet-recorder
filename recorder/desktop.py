@@ -4,7 +4,7 @@ import sys
 from . import server as srv
 
 
-def run(config, log=print):
+def run(config, log=print, on_handle=None):
     """Open the app in a native window. Returns an error string or None."""
     try:
         import webview
@@ -12,6 +12,8 @@ def run(config, log=print):
         return "pywebview 不可用：%s" % e
 
     handle = srv.ServerHandle(config, log=log, port=int(config.get("port") or 0)).start()
+    if on_handle:
+        on_handle(handle)
     width = 1380
     height = 920
     window = webview.create_window(

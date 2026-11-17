@@ -40,6 +40,7 @@ DEFAULTS = {
     "denoise_hp": 90,
     "denoise_gate": False,
     "denoise_loudnorm": False,
+    "tablet_denoise": True,
     # live preview / level meter
     "preview_fps": 4,
     "preview_width": 720,
@@ -91,7 +92,7 @@ INTS = {
 }
 BOOLS = {"touches", "mirror", "stay_awake", "open_folder_after_record", "screenshot_on_stop",
          "monitor_level", "transcode", "keep_original", "auto_preview",
-         "denoise_gate", "denoise_loudnorm"}
+         "denoise_gate", "denoise_loudnorm", "tablet_denoise"}
 
 
 def _platform_dirs():

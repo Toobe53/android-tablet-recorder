@@ -1,6 +1,6 @@
 ; Inno Setup script for 安卓平板录屏助手
 #define MyAppName "安卓平板录屏助手"
-#define MyAppVersion "3.0.0"
+#define MyAppVersion "3.2.0"
 #define MyAppExeName "TabletRecorder.exe"
 
 [Setup]

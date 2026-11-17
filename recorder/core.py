@@ -499,6 +499,25 @@ class Runner:
                 "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", out]
         return self._spawn(args, "mux", name, out)
 
+    def start_denoise(self, video, cfg):
+        """Post-process the tablet microphone track (scrcpy has no audio filters)."""
+        ext = "mkv" if (cfg or {}).get("container") == "mkv" else "mp4"
+        stem = os.path.splitext(os.path.basename(video))[0]
+        out = os.path.join(self.recordings_dir, "%s-clean.%s" % (stem, ext))
+        chain = denoise_filter(cfg)
+        args = [self.tools.ffmpeg, "-y", "-hide_banner", "-i", video,
+                "-c:v", "copy", "-af", chain, "-c:a", "aac", "-b:a", "192k", out]
+
+        def done(code):
+            self._log("平板麦克风降噪%s：%s" % ("完成" if code == 0 else "失败", out))
+            if code == 0 and not (cfg or {}).get("keep_original", True):
+                try:
+                    os.remove(video)
+                except Exception:
+                    pass
+
+        return self._spawn(args, "denoise", "tablet", out, done)
+
     def start_transcode(self, video, cfg, name="final"):
         """Post-process a recording with ffmpeg (codec/CRF/scale/fps/audio)."""
         os.makedirs(self.recordings_dir, exist_ok=True)
@@ -514,7 +533,14 @@ class Runner:
             args += ["-vf", "scale=-2:%s" % scale]
         if int(cfg.get("tc_fps", 0)) > 0:
             args += ["-r", str(int(cfg["tc_fps"]))]
+        chain = ""
+        if cfg.get("audio") == "mic" and cfg.get("tablet_denoise") and cfg.get("denoise_mode", "off") != "off":
+            chain = denoise_filter(cfg)
+        if chain:
+            args += ["-af", chain]
         audio_codec = cfg.get("tc_audio_codec", "aac")
+        if chain and audio_codec == "copy":
+            audio_codec = "aac"
         if audio_codec == "copy":
             args += ["-c:a", "copy"]
         else:

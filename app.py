@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-"""安卓平板录屏助手 - standalone desktop app for adb/scrcpy/ffmpeg recording.
+"""安卓平板录屏助手 - standalone desktop client (adb/scrcpy/ffmpeg).
 
-Usage:
-    python3 app.py                # native window (pywebview)
-    python3 app.py --browser      # browser fallback (no pywebview needed)
-    python3 app.py --port 9000    # fixed port
+Only the desktop client is supported. The local bridge on 127.0.0.1 is an
+implementation detail of the native window and stops with it.
 """
 import argparse
 import atexit
@@ -12,18 +10,15 @@ import os
 import signal
 import sys
 import time
-import webbrowser
 
+from recorder.config import Config
+from recorder import desktop, server
 
 _HANDLES = []
 
 
 def bootstrap_path():
-    """GUI apps inherit a minimal PATH (Finder/Explorer/desktop launchers).
-
-    Prepend the usual tool locations so scrcpy/ffmpeg/adb are found without the
-    user having to configure absolute paths.
-    """
+    """GUI apps inherit a minimal PATH (Finder/Explorer/desktop launchers)."""
     candidates = []
     if sys.platform == "darwin":
         candidates += ["/opt/homebrew/bin", "/usr/local/bin", "/opt/local/bin", "/usr/bin"]
@@ -44,67 +39,77 @@ def bootstrap_path():
 
 bootstrap_path()
 
-from recorder.config import Config
-from recorder import desktop, server
+
+def _cleanup(*_args):
+    for handle in _HANDLES:
+        try:
+            handle.stop()
+        except Exception:
+            pass
+
+
+def _native_message(message):
+    import subprocess
+    try:
+        if sys.platform == "darwin":
+            script = 'display dialog "%s" buttons {"好"} default button 1 with icon caution' % message.replace('"', '\\"')
+            subprocess.Popen(["osascript", "-e", script])
+        elif sys.platform == "win32":
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(0, message, "安卓平板录屏助手", 0x10)
+        else:
+            subprocess.Popen(["zenity", "--error", "--text=" + message])
+    except Exception:
+        pass
+
+
+def headless_mode(config):
+    """Internal only: run the bridge without a window (CI smoke tests)."""
+    handle = server.ServerHandle(config, log=lambda line: print(line, flush=True),
+                                 port=int(config.get("port") or 0)).start()
+    _HANDLES.append(handle)
+    print("headless bridge on %d" % handle.port, flush=True)
+    try:
+        while True:
+            time.sleep(0.5)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        handle.stop()
+    return 0
 
 
 def main():
     parser = argparse.ArgumentParser(description="安卓平板录屏助手")
-    parser.add_argument("--browser", action="store_true", help="用浏览器打开，不开原生窗口")
-    parser.add_argument("--port", type=int, default=0, help="固定端口（默认自动）")
+    parser.add_argument("--headless", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--port", type=int, default=0, help="内部端口（默认自动）")
     parser.add_argument("--version", action="store_true")
     args = parser.parse_args()
     if args.version:
-        print("安卓平板录屏助手 3.1")
+        print("安卓平板录屏助手 3.2")
         return 0
     config = Config()
     if args.port:
         config.data["port"] = args.port
-    def _cleanup(*_args):
-        for handle in _HANDLES:
-            try:
-                handle.stop()
-            except Exception:
-                pass
     atexit.register(_cleanup)
     try:
         signal.signal(signal.SIGTERM, lambda *_: (_cleanup(), sys.exit(0)))
         signal.signal(signal.SIGINT, lambda *_: (_cleanup(), sys.exit(0)))
     except Exception:
         pass
-    try:
-        if not args.browser and desktop.available():
-            error = desktop.run(config)
-            if error:
-                print(error, file=sys.stderr)
-            else:
-                return 0
-        return browser_mode(config)
-    except KeyboardInterrupt:
-        return 0
-
-
-def browser_mode(config):
-    handle = server.ServerHandle(config, log=lambda line: print(line, flush=True),
-                                 port=int(config.get("port") or 0)).start()
-    _HANDLES.append(handle)
-    url = handle.url
-    print("=" * 60, flush=True)
-    print(" MobileCAD Recorder（浏览器模式）", flush=True)
-    print(" " + url, flush=True)
-    print(" Ctrl+C 退出", flush=True)
-    print("=" * 60, flush=True)
-    try:
-        webbrowser.open(url)
-    except Exception:
-        pass
-    try:
-        while True:
-            time.sleep(0.5)
-    except KeyboardInterrupt:
-        print("\n正在退出…", flush=True)
-    finally:
-        handle.stop()
+    if args.headless:
+        return headless_mode(config)
+    if not desktop.available():
+        message = ("缺少 pywebview 运行库，无法启动桌面客户端。\n"
+                   "请从 Releases 下载安装包，或在本机执行：pip install pywebview pillow")
+        print(message, file=sys.stderr)
+        _native_message(message)
+        return 2
+    error = desktop.run(config, on_handle=lambda h: _HANDLES.append(h))
+    if error:
+        print(error, file=sys.stderr)
+        _native_message(error)
+        return 2
     return 0
 
 
